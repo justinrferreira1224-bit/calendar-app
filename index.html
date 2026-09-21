@@ -76,24 +76,11 @@
   .hour-block {
     background: #171717; border: 1px solid #262626; border-radius: 12px;
     padding: 12px 14px; margin-bottom: 8px;
-    display: flex; align-items: flex-start; gap: 10px;
+    display: block; width: 100%; max-width: 100%; overflow: hidden;
   }
-  .hour-block-label { font-size: 11px; color: #999; width: 122px; flex-shrink: 0; padding-top: 8px; white-space: nowrap; }
-  .hour-block-content { flex: 1; min-width: 0; }
+  .hour-block-label { font-size: 11px; color: #999; width: 100%; padding-bottom: 8px; white-space: nowrap; }
+  .hour-block-content { width: 100%; min-width: 0; }
   .hour-empty { font-size: 12px; color: #555; font-style: italic; margin-bottom: 8px; }
-  .hour-add-row { display: flex; gap: 6px; margin-top: 6px; }
-  .hour-add-input {
-    flex: 1; background: #1f1f1f; border: 1px solid #2a2a2a; border-radius: 8px;
-    padding: 8px 10px; color: #eee; font-size: 12px; font-family: inherit;
-  }
-  .hour-add-min {
-    width: 50px; background: #1f1f1f; border: 1px solid #2a2a2a; border-radius: 8px;
-    padding: 8px 6px; color: #eee; font-size: 12px; text-align: center; font-family: inherit;
-  }
-  .hour-add-btn {
-    background: #fff; color: #111; border: none; border-radius: 8px; padding: 8px 12px;
-    font-size: 12px; font-weight: 700;
-  }
   .unscheduled-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin: 16px 0 8px 2px; }
   .task-cat { font-size: 13px; }
 
@@ -336,30 +323,6 @@
       return hours * 60 + minutes;
     };
     const formatRange = (start, end) => `${fmtTime(`${String(Math.floor(start / 60)).padStart(2,'0')}:${String(start % 60).padStart(2,'0')}`)} - ${fmtTime(`${String(Math.floor(end / 60)).padStart(2,'0')}:${String(end % 60).padStart(2,'0')}`)}`;
-    const addRow = (block, start) => {
-      const row = document.createElement('div');
-      row.className = 'hour-add-row';
-      row.innerHTML = `
-        <input class="hour-add-input" placeholder="objective...">
-        <input class="hour-add-min" placeholder="min" type="number">
-        <button class="hour-add-btn">+ add</button>
-      `;
-      const titleInput = row.querySelector('.hour-add-input');
-      const minInput = row.querySelector('.hour-add-min');
-      row.querySelector('.hour-add-btn').onclick = () => {
-        const title = titleInput.value.trim();
-        if (!title) return;
-        if (!state.tasks[selectedDate]) state.tasks[selectedDate] = [];
-        state.tasks[selectedDate].push({
-          id: uid(), title, time: `${String(Math.floor(start / 60)).padStart(2,'0')}:${String(start % 60).padStart(2,'0')}`,
-          dur: +minInput.value || 0, done: false
-        });
-        save();
-        renderTasks();
-        renderCalendar();
-      };
-      block.querySelector('.hour-block-content').appendChild(row);
-    };
     const addGap = (start, end) => {
       const block = document.createElement('div');
       block.className = 'hour-block';
@@ -369,7 +332,6 @@
           <div class="hour-empty">No plans</div>
         </div>
       `;
-      addRow(block, start);
       list.appendChild(block);
     };
 
