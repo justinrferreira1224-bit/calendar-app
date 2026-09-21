@@ -421,7 +421,7 @@
       if (offset > 0) {
         const label = document.createElement('div');
         label.className = 'month-label-row';
-        label.innerHTML = `${monthDate.toLocaleString('default', { month: 'long' })} <span class="month-label-year">${y}</span>`;
+        label.textContent = monthDate.toLocaleString('default', { month: 'short' });
         grid.appendChild(label);
       }
 
