@@ -72,13 +72,13 @@
   .task-title.done { text-decoration: line-through; color: #666; }
   .task-meta { font-size: 10px; color: #777; margin-top: 2px; }
 
-  /* ---- Hour blocks ---- */
+  /* ---- Timeline blocks ---- */
   .hour-block {
     background: #171717; border: 1px solid #262626; border-radius: 12px;
     padding: 12px 14px; margin-bottom: 8px;
     display: flex; align-items: flex-start; gap: 10px;
   }
-  .hour-block-label { font-size: 11px; color: #999; width: 60px; flex-shrink: 0; padding-top: 8px; white-space: nowrap; }
+  .hour-block-label { font-size: 11px; color: #999; width: 122px; flex-shrink: 0; padding-top: 8px; white-space: nowrap; }
   .hour-block-content { flex: 1; min-width: 0; }
   .hour-empty { font-size: 12px; color: #555; font-style: italic; margin-bottom: 8px; }
   .hour-add-row { display: flex; gap: 6px; margin-top: 6px; }
@@ -330,60 +330,66 @@
     const scheduled = allTasks.filter(t => t.time);
     const unscheduled = allTasks.filter(t => !t.time);
 
-    const byHour = {};
-    scheduled.forEach(t => {
-      const hr = t.time.slice(0,2);
-      (byHour[hr] = byHour[hr] || []).push(t);
-    });
-
-    for (let h = 0; h < 24; h++) {
-      const hr = String(h).padStart(2,'0');
-      const nextHr = String((h + 1) % 24).padStart(2,'0');
-      const block = document.createElement('div');
-      block.className = 'hour-block';
-
-      const label = document.createElement('div');
-      label.className = 'hour-block-label';
-      label.textContent = fmtTime(hr + ':00');
-      block.appendChild(label);
-
-      const content = document.createElement('div');
-      content.className = 'hour-block-content';
-
-      if (byHour[hr]) {
-        byHour[hr].sort((a,b) => a.time.localeCompare(b.time)).forEach(t => content.appendChild(taskCard(t)));
-      } else {
-        const empty = document.createElement('div');
-        empty.className = 'hour-empty';
-        empty.textContent = 'nothing scheduled yet';
-        content.appendChild(empty);
-      }
-
-      const addRow = document.createElement('div');
-      addRow.className = 'hour-add-row';
-      addRow.innerHTML = `
+    const DAY_END = 23 * 60;
+    const toMinutes = time => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    const formatRange = (start, end) => `${fmtTime(`${String(Math.floor(start / 60)).padStart(2,'0')}:${String(start % 60).padStart(2,'0')}`)} - ${fmtTime(`${String(Math.floor(end / 60)).padStart(2,'0')}:${String(end % 60).padStart(2,'0')}`)}`;
+    const addRow = (block, start) => {
+      const row = document.createElement('div');
+      row.className = 'hour-add-row';
+      row.innerHTML = `
         <input class="hour-add-input" placeholder="objective...">
         <input class="hour-add-min" placeholder="min" type="number">
         <button class="hour-add-btn">+ add</button>
       `;
-      const titleInput = addRow.querySelector('.hour-add-input');
-      const minInput = addRow.querySelector('.hour-add-min');
-      addRow.querySelector('.hour-add-btn').onclick = () => {
+      const titleInput = row.querySelector('.hour-add-input');
+      const minInput = row.querySelector('.hour-add-min');
+      row.querySelector('.hour-add-btn').onclick = () => {
         const title = titleInput.value.trim();
         if (!title) return;
         if (!state.tasks[selectedDate]) state.tasks[selectedDate] = [];
         state.tasks[selectedDate].push({
-          id: uid(), title, time: hr + ':00', dur: +minInput.value || 0, done: false
+          id: uid(), title, time: `${String(Math.floor(start / 60)).padStart(2,'0')}:${String(start % 60).padStart(2,'0')}`,
+          dur: +minInput.value || 0, done: false
         });
         save();
         renderTasks();
         renderCalendar();
       };
-      content.appendChild(addRow);
-
-      block.appendChild(content);
+      block.querySelector('.hour-block-content').appendChild(row);
+    };
+    const addGap = (start, end) => {
+      const block = document.createElement('div');
+      block.className = 'hour-block';
+      block.innerHTML = `
+        <div class="hour-block-label">${formatRange(start, end)}</div>
+        <div class="hour-block-content">
+          <div class="hour-empty">No plans</div>
+        </div>
+      `;
+      addRow(block, start);
       list.appendChild(block);
-    }
+    };
+
+    let cursor = 0;
+    scheduled
+      .map(task => ({ task, start: Math.min(toMinutes(task.time), DAY_END) }))
+      .sort((a, b) => a.start - b.start)
+      .forEach(({ task, start }) => {
+        if (start > cursor) addGap(cursor, start);
+
+        const end = Math.min(DAY_END, start + Math.max(0, Number(task.dur) || 0));
+        const block = document.createElement('div');
+        block.className = 'hour-block';
+        block.innerHTML = `<div class="hour-block-label">${formatRange(start, end)}</div><div class="hour-block-content"></div>`;
+        block.querySelector('.hour-block-content').appendChild(taskCard(task));
+        list.appendChild(block);
+        cursor = Math.max(cursor, end);
+      });
+
+    if (cursor < DAY_END) addGap(cursor, DAY_END);
 
     if (unscheduled.length) {
       const label = document.createElement('div');
