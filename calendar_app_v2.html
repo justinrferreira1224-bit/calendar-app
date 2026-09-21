@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Calendar</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #0d0d0d; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; color: #eee; overflow: hidden; }
+
+  #app { display: flex; flex-direction: column; height: 100vh; max-width: 480px; margin: 0 auto; background: #111; }
+
+  /* ---- Header ---- */
+  .topbar { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px 10px 18px; }
+  .topbar h1 { font-size: 20px; font-weight: 700; }
+  .nav-arrows { display: flex; gap: 14px; font-size: 18px; color: #888; }
+  .nav-arrows span { cursor: pointer; }
+
+  /* ---- Tabs ---- */
+  .tabs { display: flex; border-bottom: 1px solid #222; }
+  .tab { flex: 1; text-align: center; padding: 10px 0; font-size: 13px; font-weight: 600; color: #666; }
+  .tab.active { color: #fff; border-bottom: 2px solid #fff; }
+
+  .view { flex: 1; overflow-y: auto; padding: 12px 14px 90px 14px; display: none; }
+  .view.active { display: block; }
+
+  /* ---- Calendar grid ---- */
+  .weekdays { display: grid; grid-template-columns: repeat(7,1fr); text-align: center; font-size: 10px; color: #777; margin-bottom: 6px; }
+  .days-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+  .day-cell {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; font-size: 13px; color: #ccc; position: relative;
+  }
+  .day-cell.today { border: 1px solid #fff; }
+  .day-cell.selected { background: #fff; color: #111; font-weight: 700; }
+  .day-cell.empty { visibility: hidden; }
+  .dot { position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #4caf50; }
+
+  .day-summary { margin-top: 16px; font-size: 12px; color: #888; }
+  .day-summary b { color: #fff; }
+
+  /* ---- Tasks ---- */
+  .task-header { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 8px 0; }
+  .task-header h2 { font-size: 15px; }
+  .progress { font-size: 11px; color: #888; }
+
+  .filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px; }
+  .filter-chip { flex-shrink: 0; padding: 5px 10px; border-radius: 14px; background: #1c1c1c; font-size: 11px; color: #aaa; border: 1px solid #2a2a2a; }
+  .filter-chip.active { background: #fff; color: #111; border-color: #fff; }
+
+  .swipe-wrap {
+    position: relative; border-radius: 10px; margin-bottom: 8px; overflow: hidden;
+  }
+  .swipe-delete-bg {
+    position: absolute; inset: 0; background: #d32f2f; display: flex; align-items: center;
+    justify-content: flex-end; padding-right: 18px; color: #fff; font-size: 18px; font-weight: 700;
+    cursor: pointer;
+  }
+  .swipe-content {
+    position: relative; background: #1a1a1a; border: 1px solid #262626; border-radius: 10px;
+    touch-action: pan-y; transition: transform 0.15s ease;
+  }
+
+  .task-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+  }
+  .task-check { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #555; flex-shrink: 0; }
+  .task-check.done { background: #4caf50; border-color: #4caf50; }
+  .task-body { flex: 1; }
+  .task-title { font-size: 13px; }
+  .task-title.done { text-decoration: line-through; color: #666; }
+  .task-meta { font-size: 10px; color: #777; margin-top: 2px; }
+
+  /* ---- Hour blocks ---- */
+  .hour-block {
+    background: #171717; border: 1px solid #262626; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 8px;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .hour-block-label { font-size: 11px; color: #999; width: 60px; flex-shrink: 0; padding-top: 8px; white-space: nowrap; }
+  .hour-block-content { flex: 1; min-width: 0; }
+  .hour-empty { font-size: 12px; color: #555; font-style: italic; margin-bottom: 8px; }
+  .hour-add-row { display: flex; gap: 6px; margin-top: 6px; }
+  .hour-add-input {
+    flex: 1; background: #1f1f1f; border: 1px solid #2a2a2a; border-radius: 8px;
+    padding: 8px 10px; color: #eee; font-size: 12px; font-family: inherit;
+  }
+  .hour-add-min {
+    width: 50px; background: #1f1f1f; border: 1px solid #2a2a2a; border-radius: 8px;
+    padding: 8px 6px; color: #eee; font-size: 12px; text-align: center; font-family: inherit;
+  }
+  .hour-add-btn {
+    background: #fff; color: #111; border: none; border-radius: 8px; padding: 8px 12px;
+    font-size: 12px; font-weight: 700;
+  }
+  .unscheduled-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin: 16px 0 8px 2px; }
+  .task-cat { font-size: 13px; }
+
+  .empty-state { text-align: center; color: #555; font-size: 12px; margin-top: 30px; }
+
+  /* ---- Day detail view ---- */
+  .day-view-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .back-btn { font-size: 18px; color: #ccc; padding: 4px 6px 4px 0; }
+  .day-view-title { font-size: 16px; font-weight: 700; }
+
+  /* ---- Notes ---- */
+  .note-item {
+    padding: 12px;
+  }
+  .note-text { font-size: 13px; color: #ddd; white-space: pre-wrap; }
+  .note-date { font-size: 10px; color: #666; margin-top: 6px; }
+  .note-input-bar { display: flex; gap: 8px; }
+  .note-input {
+    flex: 1; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 10px 12px;
+    color: #eee; font-size: 13px; resize: none; min-height: 44px; font-family: inherit;
+  }
+
+  /* ---- FAB ---- */
+  .fab {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    width: 54px; height: 54px; border-radius: 50%; background: #fff; color: #111;
+    display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 400;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5); z-index: 20;
+  }
+
+  /* ---- Sheet / modal ---- */
+  .sheet-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: flex-end; z-index: 30;
+  }
+  .sheet-backdrop.open { display: flex; }
+  .sheet {
+    background: #171717; width: 100%; max-width: 480px; margin: 0 auto; border-radius: 18px 18px 0 0;
+    padding: 18px; max-height: 80vh; overflow-y: auto;
+  }
+  .sheet h3 { font-size: 15px; margin-bottom: 12px; }
+  .sheet-input {
+    width: 100%; background: #1f1f1f; border: 1px solid #2a2a2a; border-radius: 8px; padding: 10px;
+    color: #eee; font-size: 13px; margin-bottom: 10px; font-family: inherit;
+  }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip { padding: 6px 10px; border-radius: 12px; background: #1f1f1f; border: 1px solid #2a2a2a; font-size: 11px; color: #ccc; }
+  .chip.active { background: #fff; color: #111; }
+  .sheet-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .btn { flex: 1; padding: 11px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; }
+  .btn-primary { background: #fff; color: #111; }
+  .btn-secondary { background: #262626; color: #ccc; }
+  .btn-danger { background: #d32f2f; color: #fff; }
+
+  /* ---- Confirm modal (custom, since native confirm() gets blocked in sandboxed views) ---- */
+  .confirm-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none;
+    align-items: center; justify-content: center; z-index: 40; padding: 20px;
+  }
+  .confirm-backdrop.open { display: flex; }
+  .confirm-box {
+    background: #171717; border: 1px solid #2a2a2a; border-radius: 14px; padding: 20px;
+    width: 100%; max-width: 320px; text-align: center;
+  }
+  .confirm-box p { font-size: 14px; color: #eee; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <h1 id="monthLabel">Calendar</h1>
+    <div class="nav-arrows"><span onclick="shiftMonth(-1)">&larr;</span><span onclick="shiftMonth(1)">&rarr;</span></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="calendar" onclick="switchTab('calendar')">🗓️ Calendar</div>
+    <div class="tab" data-tab="notes" onclick="switchTab('notes')">📝 Notes</div>
+  </div>
+
+  <div class="view active" id="view-calendar">
+    <div id="monthSection">
+      <div class="weekdays"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+      <div class="days-grid" id="daysGrid"></div>
+    </div>
+
+    <div id="dayDetailSection" style="display:none;">
+      <div class="day-view-header">
+        <span class="back-btn" onclick="closeDayView()">&larr;</span>
+        <span class="day-view-title" id="selectedDayLabel">Today</span>
+      </div>
+      <div class="progress" id="progressLabel" style="margin-bottom:10px;">0 done · 0%</div>
+      <div id="taskList"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-notes">
+    <div class="note-input-bar" style="margin-bottom:14px;">
+      <textarea class="note-input" id="noteInput" placeholder="dump a thought..."></textarea>
+      <button class="btn btn-primary" style="width:60px;flex:none;" onclick="addNote()">save</button>
+    </div>
+    <div id="notesList"></div>
+  </div>
+
+  <div class="fab" onclick="openTaskSheet()">+</div>
+
+</div>
+
+<div class="confirm-backdrop" id="confirmBackdrop">
+  <div class="confirm-box">
+    <p id="confirmMsg">Delete this?</p>
+    <div class="sheet-actions">
+      <button class="btn btn-secondary" id="confirmCancel">cancel</button>
+      <button class="btn btn-danger" id="confirmOk">delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="sheetBackdrop">
+  <div class="sheet">
+    <h3>New Task</h3>
+    <input class="sheet-input" id="taskTitleInput" placeholder="what's the task?">
+    <input class="sheet-input" id="timeInput" type="time" placeholder="start time">
+    <div class="chip-row">
+      <div class="chip" data-dur="0">N/A</div>
+      <div class="chip" data-dur="15">15m</div>
+      <div class="chip" data-dur="30">30m</div>
+      <div class="chip" data-dur="60">1h</div>
+      <div class="chip" data-dur="90">1.5h</div>
+      <div class="chip" data-dur="120">2h</div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-secondary" onclick="closeSheet()">cancel</button>
+      <button class="btn btn-primary" onclick="saveTask()">save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let state = JSON.parse(localStorage.getItem('cal_state') || '{}');
+  state.tasks = state.tasks || {};   // { 'YYYY-MM-DD': [ {id,title,time,dur,done} ] }
+  state.notes = state.notes || [];   // [ {id,text,date} ]
+
+  let viewDate = new Date();
+  let selectedDate = fmtDate(new Date());
+  let activeDur = 0;
+
+  // Custom confirm modal — native confirm()/window.confirm can get silently
+  // blocked in sandboxed embedded views, so we roll our own.
+  function askConfirm(message, onYes) {
+    const backdrop = document.getElementById('confirmBackdrop');
+    document.getElementById('confirmMsg').textContent = message;
+    backdrop.classList.add('open');
+    const okBtn = document.getElementById('confirmOk');
+    const cancelBtn = document.getElementById('confirmCancel');
+    const cleanup = () => {
+      backdrop.classList.remove('open');
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+    };
+    okBtn.onclick = () => { cleanup(); onYes(); };
+    cancelBtn.onclick = () => cleanup();
+  }
+
+  function save() { localStorage.setItem('cal_state', JSON.stringify(state)); }
+  function fmtDate(d) { return d.toISOString().slice(0,10); }
+  function uid() { return Date.now() + Math.random().toString(36).slice(2,6); }
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.getElementById('view-calendar').classList.toggle('active', tab === 'calendar');
+    document.getElementById('view-notes').classList.toggle('active', tab === 'notes');
+  }
+
+  function shiftMonth(dir) {
+    viewDate.setMonth(viewDate.getMonth() + dir);
+    renderCalendar();
+  }
+
+  function renderCalendar() {
+    const y = viewDate.getFullYear(), m = viewDate.getMonth();
+    document.getElementById('monthLabel').textContent =
+      viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    const grid = document.getElementById('daysGrid');
+    grid.innerHTML = '';
+    const firstDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayStr = fmtDate(new Date());
+
+    for (let i = 0; i < firstDay; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'day-cell empty';
+      grid.appendChild(empty);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = fmtDate(new Date(y, m, d));
+      const cell = document.createElement('div');
+      cell.className = 'day-cell';
+      if (dateStr === todayStr) cell.classList.add('today');
+      if (dateStr === selectedDate) cell.classList.add('selected');
+      cell.textContent = d;
+      if ((state.tasks[dateStr] || []).length) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        cell.appendChild(dot);
+      }
+      cell.onclick = () => { selectedDate = dateStr; renderCalendar(); openDayView(); };
+      grid.appendChild(cell);
+    }
+  }
+
+  function openDayView() {
+    document.getElementById('monthSection').style.display = 'none';
+    document.getElementById('dayDetailSection').style.display = 'block';
+    renderTasks();
+  }
+  function closeDayView() {
+    document.getElementById('dayDetailSection').style.display = 'none';
+    document.getElementById('monthSection').style.display = 'block';
+  }
+
+  function renderTasks() {
+    document.getElementById('selectedDayLabel').textContent =
+      new Date(selectedDate + 'T00:00').toLocaleDateString('default', { weekday: 'long', month: 'short', day: 'numeric' });
+
+    const allTasks = state.tasks[selectedDate] || [];
+    const done = allTasks.filter(t => t.done).length;
+    document.getElementById('progressLabel').textContent =
+      `${done} done · ${allTasks.length ? Math.round(done/allTasks.length*100) : 0}%`;
+
+    const list = document.getElementById('taskList');
+    list.innerHTML = '';
+
+    const scheduled = allTasks.filter(t => t.time);
+    const unscheduled = allTasks.filter(t => !t.time);
+
+    const byHour = {};
+    scheduled.forEach(t => {
+      const hr = t.time.slice(0,2);
+      (byHour[hr] = byHour[hr] || []).push(t);
+    });
+
+    for (let h = 0; h < 24; h++) {
+      const hr = String(h).padStart(2,'0');
+      const nextHr = String((h + 1) % 24).padStart(2,'0');
+      const block = document.createElement('div');
+      block.className = 'hour-block';
+
+      const label = document.createElement('div');
+      label.className = 'hour-block-label';
+      label.textContent = fmtTime(hr + ':00');
+      block.appendChild(label);
+
+      const content = document.createElement('div');
+      content.className = 'hour-block-content';
+
+      if (byHour[hr]) {
+        byHour[hr].sort((a,b) => a.time.localeCompare(b.time)).forEach(t => content.appendChild(taskCard(t)));
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'hour-empty';
+        empty.textContent = 'nothing scheduled yet';
+        content.appendChild(empty);
+      }
+
+      const addRow = document.createElement('div');
+      addRow.className = 'hour-add-row';
+      addRow.innerHTML = `
+        <input class="hour-add-input" placeholder="objective...">
+        <input class="hour-add-min" placeholder="min" type="number">
+        <button class="hour-add-btn">+ add</button>
+      `;
+      const titleInput = addRow.querySelector('.hour-add-input');
+      const minInput = addRow.querySelector('.hour-add-min');
+      addRow.querySelector('.hour-add-btn').onclick = () => {
+        const title = titleInput.value.trim();
+        if (!title) return;
+        if (!state.tasks[selectedDate]) state.tasks[selectedDate] = [];
+        state.tasks[selectedDate].push({
+          id: uid(), title, time: hr + ':00', dur: +minInput.value || 0, done: false
+        });
+        save();
+        renderTasks();
+        renderCalendar();
+      };
+      content.appendChild(addRow);
+
+      block.appendChild(content);
+      list.appendChild(block);
+    }
+
+    if (unscheduled.length) {
+      const label = document.createElement('div');
+      label.className = 'unscheduled-label';
+      label.textContent = 'Unscheduled';
+      list.appendChild(label);
+      unscheduled.forEach(t => list.appendChild(taskCard(t)));
+    }
+  }
+
+  // Wraps any content element in swipe-to-delete: drag/click-hold-drag left reveals
+  // a red trash button underneath. Tapping the trash asks confirm before deleting.
+  // Works with touch (phone) and mouse (laptop trackpad/click-drag).
+  function makeSwipeable(contentEl, onDelete, confirmLabel) {
+    const wrap = document.createElement('div');
+    wrap.className = 'swipe-wrap';
+
+    const bg = document.createElement('div');
+    bg.className = 'swipe-delete-bg';
+    bg.textContent = '🗑️';
+    bg.onclick = (e) => {
+      e.stopPropagation();
+      askConfirm(`Delete ${confirmLabel || 'this'}?`, () => {
+        wrap.style.maxHeight = wrap.offsetHeight + 'px';
+        requestAnimationFrame(() => {
+          wrap.style.transition = 'max-height 0.18s ease, margin 0.18s ease';
+          wrap.style.maxHeight = '0px';
+          wrap.style.marginBottom = '0px';
+        });
+        setTimeout(onDelete, 180);
+      });
+    };
+
+    contentEl.classList.add('swipe-content');
+
+    wrap.appendChild(bg);
+    wrap.appendChild(contentEl);
+
+    const REVEAL = 60;
+    let startX = 0, startY = 0, dx = 0, dragging = false, locked = null, activePointer = null;
+
+    // Pointer Events unify mouse, touch and trackpad-click-drag into one API,
+    // and setPointerCapture keeps the drag tracking even if the cursor leaves the element.
+    contentEl.addEventListener('pointerdown', e => {
+      if (e.button !== undefined && e.button !== 0) return; // left click / primary touch only
+      startX = e.clientX; startY = e.clientY; dx = 0; dragging = true; locked = null;
+      activePointer = e.pointerId;
+      contentEl.style.transition = 'none';
+      try { contentEl.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+
+    contentEl.addEventListener('pointermove', e => {
+      if (!dragging || e.pointerId !== activePointer) return;
+      dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (locked === null && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+        locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      }
+      if (locked === 'x') {
+        if (e.cancelable) e.preventDefault();
+        const clamped = Math.min(0, Math.max(dx, -70));
+        contentEl.style.transform = `translateX(${clamped}px)`;
+      }
+    });
+
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      contentEl.style.transition = 'transform 0.15s ease';
+      if (locked === 'x' && dx < -REVEAL) {
+        contentEl.style.transform = 'translateX(-70px)';
+      } else {
+        contentEl.style.transform = 'translateX(0)';
+      }
+      locked = null;
+    }
+    contentEl.addEventListener('pointerup', endDrag);
+    contentEl.addEventListener('pointercancel', endDrag);
+
+    return wrap;
+  }
+
+  function taskCard(t) {
+    const item = document.createElement('div');
+    item.className = 'task-item';
+    item.innerHTML = `
+      <div class="task-check ${t.done ? 'done' : ''}"></div>
+      <div class="task-body">
+        <div class="task-title ${t.done ? 'done' : ''}">${t.title}</div>
+        <div class="task-meta">${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}</div>
+      </div>
+    `;
+    item.querySelector('.task-check').onclick = () => toggleDone(t.id);
+    return makeSwipeable(item, () => deleteTask(t.id), 'this task');
+  }
+
+  function fmtTime(t) {
+    const [h,m] = t.split(':').map(Number);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const hr = h % 12 === 0 ? 12 : h % 12;
+    return `${hr}:${String(m).padStart(2,'0')} ${suffix}`;
+  }
+
+  function toggleDone(id) {
+    const t = (state.tasks[selectedDate] || []).find(x => x.id === id);
+    if (t) { t.done = !t.done; save(); renderTasks(); renderCalendar(); }
+  }
+  function deleteTask(id) {
+    state.tasks[selectedDate] = (state.tasks[selectedDate] || []).filter(x => x.id !== id);
+    save(); renderTasks(); renderCalendar();
+  }
+
+  function openTaskSheet() {
+    document.getElementById('taskTitleInput').value = '';
+    document.getElementById('timeInput').value = '';
+    activeDur = 0;
+    document.querySelectorAll('[data-dur]').forEach(c => c.classList.toggle('active', +c.dataset.dur === 0));
+    document.querySelectorAll('[data-dur]').forEach(c => c.onclick = () => {
+      activeDur = +c.dataset.dur;
+      document.querySelectorAll('[data-dur]').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+    });
+    document.getElementById('sheetBackdrop').classList.add('open');
+  }
+  function closeSheet() { document.getElementById('sheetBackdrop').classList.remove('open'); }
+
+  function saveTask() {
+    const title = document.getElementById('taskTitleInput').value.trim();
+    if (!title) return;
+    const time = document.getElementById('timeInput').value;
+    if (!state.tasks[selectedDate]) state.tasks[selectedDate] = [];
+    state.tasks[selectedDate].push({ id: uid(), title, time, dur: activeDur, done: false });
+    save();
+    closeSheet();
+    openDayView();
+    renderCalendar();
+  }
+
+  function renderNotes() {
+    const list = document.getElementById('notesList');
+    list.innerHTML = '';
+    if (!state.notes.length) {
+      list.innerHTML = '<div class="empty-state">no notes yet</div>';
+      return;
+    }
+    [...state.notes].reverse().forEach(n => {
+      const item = document.createElement('div');
+      item.className = 'note-item';
+      item.innerHTML = `<div class="note-text"></div><div class="note-date">${n.date}</div>`;
+      item.querySelector('.note-text').textContent = n.text;
+      const wrap = makeSwipeable(item, () => {
+        state.notes = state.notes.filter(x => x.id !== n.id);
+        save(); renderNotes();
+      }, 'this note');
+      list.appendChild(wrap);
+    });
+  }
+  function addNote() {
+    const input = document.getElementById('noteInput');
+    const text = input.value.trim();
+    if (!text) return;
+    state.notes.push({ id: uid(), text, date: new Date().toLocaleDateString('default', { month:'short', day:'numeric', year:'numeric' }) });
+    save();
+    input.value = '';
+    renderNotes();
+  }
+
+  renderCalendar();
+  renderNotes();
+</script>
+</body>
+</html>
