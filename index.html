@@ -352,7 +352,13 @@
   state.notes = state.notes || [];   // [ {id,text,date} ]
   state.routines = state.routines || { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
   for (let day = 0; day < 7; day++) state.routines[day] = state.routines[day] || [];
+  for (let day = 1; day <= 5; day++) {
+    if (!state.routines[day].some(task => task.title.toLowerCase() === 'workout')) {
+      state.routines[day].push({ id: `routine-workout-${day}`, title: 'Workout', time: '', dur: 0 });
+    }
+  }
   state.routineOverrides = state.routineOverrides || {};
+  localStorage.setItem('cal_state', JSON.stringify(state));
 
   let viewDate = new Date();
   let selectedDate = fmtDate(new Date());
