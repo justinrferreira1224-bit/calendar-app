@@ -179,7 +179,7 @@
     background: linear-gradient(150deg, #fff, #999);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  .topbar h1 .title-year {
+  .topbar h1 .title-month {
     color: #ff6b5b; -webkit-text-fill-color: #ff6b5b; background: none;
   }
   .tab.active { box-shadow: 0 1px 6px rgba(255,255,255,0.15); }
@@ -406,13 +406,7 @@
 
   function renderCalendar() {
     const monthLabel = document.getElementById('monthLabel');
-    monthLabel.innerHTML = '';
-    const monthName = document.createElement('span');
-    monthName.textContent = viewDate.toLocaleString('default', { month: 'long' });
-    const year = document.createElement('span');
-    year.className = 'title-year';
-    year.textContent = ` ${viewDate.getFullYear()}`;
-    monthLabel.append(monthName, year);
+    monthLabel.innerHTML = `<span class="title-month">${viewDate.toLocaleString('default', { month: 'long' })}</span> <span class="title-year">${viewDate.getFullYear()}</span>`;
 
     const grid = document.getElementById('daysGrid');
     grid.innerHTML = '';
@@ -424,14 +418,12 @@
       const y = monthDate.getFullYear(), m = monthDate.getMonth();
       const daysInMonth = new Date(y, m + 1, 0).getDate();
 
-      const label = document.createElement('div');
-      label.className = 'month-label-row';
-      label.appendChild(document.createTextNode(monthDate.toLocaleString('default', { month: 'long' }) + ' '));
-      const year = document.createElement('span');
-      year.className = 'month-label-year';
-      year.textContent = y;
-      label.appendChild(year);
-      grid.appendChild(label);
+      if (offset > 0) {
+        const label = document.createElement('div');
+        label.className = 'month-label-row';
+        label.innerHTML = `${monthDate.toLocaleString('default', { month: 'long' })} <span class="month-label-year">${y}</span>`;
+        grid.appendChild(label);
+      }
 
       const monthFirstDay = new Date(y, m, 1).getDay();
       for (let i = 0; i < monthFirstDay; i++) {
