@@ -34,6 +34,11 @@
   .day-cell.today { border: 1px solid #fff; }
   .day-cell.selected { background: #fff; color: #111; font-weight: 700; }
   .day-cell.empty { visibility: hidden; }
+  .month-label-row {
+    grid-column: 1 / -1;
+    font-size: 13px; font-weight: 700; color: #ff6b5b;
+    padding: 14px 0 6px 4px; border-bottom: 1px solid #262626; margin-bottom: 2px;
+  }
   .dot { position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #4caf50; }
 
   .day-summary { margin-top: 16px; font-size: 12px; color: #888; }
@@ -301,36 +306,58 @@
     renderCalendar();
   }
 
+  const MONTHS_TO_SHOW = 4;
+
   function renderCalendar() {
-    const y = viewDate.getFullYear(), m = viewDate.getMonth();
     document.getElementById('monthLabel').textContent =
       viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
     const grid = document.getElementById('daysGrid');
     grid.innerHTML = '';
-    const firstDay = new Date(y, m, 1).getDay();
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
     const todayStr = fmtDate(new Date());
+    const startY = viewDate.getFullYear(), startM = viewDate.getMonth();
 
+    const firstDay = new Date(startY, startM, 1).getDay();
     for (let i = 0; i < firstDay; i++) {
       const empty = document.createElement('div');
       empty.className = 'day-cell empty';
       grid.appendChild(empty);
     }
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = fmtDate(new Date(y, m, d));
-      const cell = document.createElement('div');
-      cell.className = 'day-cell';
-      if (dateStr === todayStr) cell.classList.add('today');
-      if (dateStr === selectedDate) cell.classList.add('selected');
-      cell.textContent = d;
-      if ((state.tasks[dateStr] || []).length || getRoutineTasks(dateStr).length) {
-        const dot = document.createElement('div');
-        dot.className = 'dot';
-        cell.appendChild(dot);
+
+    for (let offset = 0; offset < MONTHS_TO_SHOW; offset++) {
+      const monthDate = new Date(startY, startM + offset, 1);
+      const y = monthDate.getFullYear(), m = monthDate.getMonth();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+      if (offset > 0) {
+        const label = document.createElement('div');
+        label.className = 'month-label-row';
+        label.textContent = monthDate.toLocaleString('default', { month: 'short' });
+        grid.appendChild(label);
+
+        const monthFirstDay = new Date(y, m, 1).getDay();
+        for (let i = 0; i < monthFirstDay; i++) {
+          const empty = document.createElement('div');
+          empty.className = 'day-cell empty';
+          grid.appendChild(empty);
+        }
       }
-      cell.onclick = () => { selectedDate = dateStr; renderCalendar(); openDayView(); };
-      grid.appendChild(cell);
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = fmtDate(new Date(y, m, day));
+        const cell = document.createElement('div');
+        cell.className = 'day-cell';
+        if (dateStr === todayStr) cell.classList.add('today');
+        if (dateStr === selectedDate) cell.classList.add('selected');
+        cell.textContent = day;
+        if ((state.tasks[dateStr] || []).length || getRoutineTasks(dateStr).length) {
+          const dot = document.createElement('div');
+          dot.className = 'dot';
+          cell.appendChild(dot);
+        }
+        cell.onclick = () => { selectedDate = dateStr; renderCalendar(); openDayView(); };
+        grid.appendChild(cell);
+      }
     }
   }
 
