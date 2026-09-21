@@ -162,6 +162,98 @@
     width: 100%; max-width: 320px; text-align: center;
   }
   .confirm-box p { font-size: 14px; color: #eee; margin-bottom: 16px; }
+
+  /* ---- Surface polish ---- */
+  #app {
+    background: linear-gradient(180deg, #131313 0%, #0a0a0a 40%);
+    position: relative;
+  }
+  #app::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.02; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  #app > * { position: relative; z-index: 1; }
+
+  .topbar h1 {
+    background: linear-gradient(150deg, #fff, #999);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .tab.active { box-shadow: 0 1px 6px rgba(255,255,255,0.15); }
+  .day-cell.selected {
+    background: linear-gradient(150deg, #ffffff, #c2c2c2); color: #111; font-weight: 700;
+    box-shadow:
+      0 6px 16px rgba(255,255,255,0.3),
+      0 2px 4px rgba(0,0,0,0.4),
+      inset 0 -3px 4px rgba(0,0,0,0.2),
+      inset 0 2px 2px rgba(255,255,255,0.6);
+  }
+  .day-cell.today { border: 1px solid rgba(255,255,255,0.5); }
+  .dot { box-shadow: 0 0 4px rgba(95,217,122,0.8); }
+
+  .swipe-content {
+    background: linear-gradient(160deg, #232323, #131313 65%);
+    border: 1px solid #2f2f2f; border-radius: 10px;
+    box-shadow:
+      0 8px 18px rgba(0,0,0,0.5),
+      0 2px 4px rgba(0,0,0,0.4),
+      inset 0 1px 0 rgba(255,255,255,0.07),
+      inset 0 -1px 0 rgba(0,0,0,0.4);
+  }
+  .hour-block {
+    background: linear-gradient(160deg, #202020, #111 70%);
+    border: 1px solid #2c2c2c; border-radius: 14px;
+    box-shadow:
+      0 10px 22px rgba(0,0,0,0.5),
+      0 2px 5px rgba(0,0,0,0.4),
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      inset 0 -1px 0 rgba(0,0,0,0.4);
+  }
+  .task-check.done {
+    background: linear-gradient(145deg, #6fe08a, #43b85f); border-color: #43b85f;
+    box-shadow: 0 0 8px rgba(95,217,122,0.5);
+  }
+
+  .fab {
+    background: linear-gradient(150deg, #ffffff, #bcbcbc); color: #111;
+    box-shadow:
+      0 10px 26px rgba(0,0,0,0.55),
+      0 4px 10px rgba(255,255,255,0.12),
+      inset 0 -3px 5px rgba(0,0,0,0.15),
+      inset 0 2px 3px rgba(255,255,255,0.7);
+    transition: transform 0.12s ease;
+  }
+  .fab:active { transform: translateX(-50%) scale(0.9); }
+
+  .sheet-backdrop {
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .sheet {
+    background: linear-gradient(170deg, #222222, #121212 60%);
+    border: 1px solid #2e2e2e; border-bottom: none;
+    box-shadow: 0 -16px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+    border-radius: 24px 24px 0 0;
+  }
+  .sheet::before {
+    content: ''; display: block; width: 36px; height: 4px; border-radius: 3px;
+    background: #444; margin: 0 auto 14px auto;
+  }
+
+  .confirm-backdrop {
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .confirm-box {
+    background: linear-gradient(170deg, #232323, #121212 65%);
+    border: 1px solid #2e2e2e; border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  .btn { transition: transform 0.1s ease; }
+  .btn:active { transform: scale(0.96); }
+  .btn-primary { background: linear-gradient(150deg, #fff, #ddd); color: #111; box-shadow: 0 2px 8px rgba(255,255,255,0.1); }
+  .btn-danger { background: linear-gradient(150deg, #e04444, #c62828); color: #fff; box-shadow: 0 2px 8px rgba(211,47,47,0.3); }
+  .sheet-input {
+    background: #161616; box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+  }
 </style>
 </head>
 <body>
