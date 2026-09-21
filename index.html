@@ -66,6 +66,7 @@
     padding: 10px 12px;
   }
   .task-check { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #555; flex-shrink: 0; }
+  .task-check.hidden { visibility: hidden; }
   .task-check.done { background: #4caf50; border-color: #4caf50; }
   .task-body { flex: 1; }
   .task-title { font-size: 13px; }
@@ -85,6 +86,17 @@
   .task-cat { font-size: 13px; }
 
   .empty-state { text-align: center; color: #555; font-size: 12px; margin-top: 30px; }
+
+  /* ---- Schedule ---- */
+  .schedule-list { display: flex; flex-direction: column; gap: 8px; }
+  .schedule-day {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    padding: 14px; background: #171717; border: 1px solid #262626; border-radius: 10px;
+    color: #eee; font: inherit; font-size: 14px; text-align: left;
+  }
+  .schedule-day::after { content: '\2192'; color: #666; font-size: 16px; }
+  .schedule-day-count { color: #666; font-size: 11px; margin-left: auto; margin-right: 12px; }
+  .routine-label { color: #777; font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; }
 
   /* ---- Day detail view ---- */
   .day-view-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -156,8 +168,23 @@
   </div>
 
   <div class="tabs">
+    <div class="tab" data-tab="schedule" onclick="switchTab('schedule')">Schedule</div>
     <div class="tab active" data-tab="calendar" onclick="switchTab('calendar')">🗓️ Calendar</div>
     <div class="tab" data-tab="notes" onclick="switchTab('notes')">📝 Notes</div>
+  </div>
+
+  <div class="view" id="view-schedule">
+    <div id="scheduleListSection">
+      <div class="task-header"><h2>Weekly routine</h2></div>
+      <div class="schedule-list" id="scheduleList"></div>
+    </div>
+    <div id="routineDetailSection" style="display:none;">
+      <div class="day-view-header">
+        <span class="back-btn" onclick="closeRoutineDay()">&larr;</span>
+        <span class="day-view-title" id="routineDayLabel">Sunday</span>
+      </div>
+      <div id="routineTaskList"></div>
+    </div>
   </div>
 
   <div class="view active" id="view-calendar">
@@ -222,10 +249,15 @@
   let state = JSON.parse(localStorage.getItem('cal_state') || '{}');
   state.tasks = state.tasks || {};   // { 'YYYY-MM-DD': [ {id,title,time,dur,done} ] }
   state.notes = state.notes || [];   // [ {id,text,date} ]
+  state.routines = state.routines || { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+  for (let day = 0; day < 7; day++) state.routines[day] = state.routines[day] || [];
+  state.routineOverrides = state.routineOverrides || {};
 
   let viewDate = new Date();
   let selectedDate = fmtDate(new Date());
   let activeDur = 0;
+  let activeContext = 'calendar';
+  let routineDay = null;
 
   // Custom confirm modal — native confirm()/window.confirm can get silently
   // blocked in sandboxed embedded views, so we roll our own.
@@ -250,8 +282,18 @@
 
   function switchTab(tab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.getElementById('view-schedule').classList.toggle('active', tab === 'schedule');
     document.getElementById('view-calendar').classList.toggle('active', tab === 'calendar');
     document.getElementById('view-notes').classList.toggle('active', tab === 'notes');
+    if (tab === 'schedule') {
+      activeContext = 'routine';
+      closeRoutineDay();
+      renderSchedule();
+    } else if (tab === 'calendar') {
+      activeContext = 'calendar';
+      closeDayView();
+    }
+    document.querySelector('.fab').style.display = tab === 'notes' || tab === 'schedule' ? 'none' : '';
   }
 
   function shiftMonth(dir) {
@@ -282,7 +324,7 @@
       if (dateStr === todayStr) cell.classList.add('today');
       if (dateStr === selectedDate) cell.classList.add('selected');
       cell.textContent = d;
-      if ((state.tasks[dateStr] || []).length) {
+      if ((state.tasks[dateStr] || []).length || getRoutineTasks(dateStr).length) {
         const dot = document.createElement('div');
         dot.className = 'dot';
         cell.appendChild(dot);
@@ -302,11 +344,71 @@
     document.getElementById('monthSection').style.display = 'block';
   }
 
+  function getWeekday(dateStr) {
+    return new Date(dateStr + 'T00:00').getDay();
+  }
+
+  function getRoutineTasks(dateStr) {
+    const overrides = state.routineOverrides[dateStr] || { hiddenIds: [], doneIds: [] };
+    const hiddenIds = overrides.hiddenIds || [];
+    const doneIds = overrides.doneIds || [];
+    return (state.routines[getWeekday(dateStr)] || [])
+      .filter(task => !hiddenIds.includes(task.id))
+      .map(task => ({ ...task, routineId: task.id, isRoutine: true, done: doneIds.includes(task.id) }));
+  }
+
+  function renderSchedule() {
+    const list = document.getElementById('scheduleList');
+    list.innerHTML = '';
+    ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].forEach((name, day) => {
+      const button = document.createElement('button');
+      button.className = 'schedule-day';
+      const count = (state.routines[day] || []).length;
+      button.innerHTML = `<span>${name}</span><span class="schedule-day-count">${count} ${count === 1 ? 'task' : 'tasks'}</span>`;
+      button.onclick = () => openRoutineDay(day);
+      list.appendChild(button);
+    });
+  }
+
+  function openRoutineDay(day) {
+    routineDay = day;
+    activeContext = 'routine';
+    document.querySelector('.fab').style.display = '';
+    document.getElementById('scheduleListSection').style.display = 'none';
+    document.getElementById('routineDetailSection').style.display = 'block';
+    document.getElementById('routineDayLabel').textContent = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day];
+    renderRoutineTasks();
+  }
+
+  function closeRoutineDay() {
+    const listSection = document.getElementById('scheduleListSection');
+    const detailSection = document.getElementById('routineDetailSection');
+    if (!listSection || !detailSection) return;
+    detailSection.style.display = 'none';
+    listSection.style.display = 'block';
+    routineDay = null;
+    if (document.getElementById('view-schedule').classList.contains('active')) {
+      document.querySelector('.fab').style.display = 'none';
+    }
+  }
+
+  function renderRoutineTasks() {
+    const list = document.getElementById('routineTaskList');
+    list.innerHTML = '';
+    const tasks = [...(state.routines[routineDay] || [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    if (!tasks.length) {
+      list.innerHTML = '<div class="empty-state">no routine tasks yet</div>';
+      return;
+    }
+    tasks.forEach(task => list.appendChild(taskCard(task, { routineTemplate: true })));
+  }
+
   function renderTasks() {
     document.getElementById('selectedDayLabel').textContent =
       new Date(selectedDate + 'T00:00').toLocaleDateString('default', { weekday: 'long', month: 'short', day: 'numeric' });
 
-    const allTasks = state.tasks[selectedDate] || [];
+    const oneOffTasks = state.tasks[selectedDate] || [];
+    const allTasks = [...oneOffTasks, ...getRoutineTasks(selectedDate)];
     const done = allTasks.filter(t => t.done).length;
     document.getElementById('progressLabel').textContent =
       `${done} done · ${allTasks.length ? Math.round(done/allTasks.length*100) : 0}%`;
@@ -434,18 +536,19 @@
     return wrap;
   }
 
-  function taskCard(t) {
+  function taskCard(t, options = {}) {
+    const isRoutine = options.routineTemplate || t.isRoutine;
     const item = document.createElement('div');
     item.className = 'task-item';
     item.innerHTML = `
-      <div class="task-check ${t.done ? 'done' : ''}"></div>
+      <div class="task-check ${t.done ? 'done' : ''}${isRoutine && options.routineTemplate ? ' hidden' : ''}"></div>
       <div class="task-body">
         <div class="task-title ${t.done ? 'done' : ''}">${t.title}</div>
-        <div class="task-meta">${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}</div>
+        <div class="task-meta">${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}${isRoutine ? ' · <span class="routine-label">routine</span>' : ''}</div>
       </div>
     `;
-    item.querySelector('.task-check').onclick = () => toggleDone(t.id);
-    return makeSwipeable(item, () => deleteTask(t.id), 'this task');
+    if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
+    return makeSwipeable(item, () => deleteTask(t), isRoutine ? 'this routine' : 'this task');
   }
 
   function fmtTime(t) {
@@ -455,16 +558,48 @@
     return `${hr}:${String(m).padStart(2,'0')} ${suffix}`;
   }
 
-  function toggleDone(id) {
-    const t = (state.tasks[selectedDate] || []).find(x => x.id === id);
-    if (t) { t.done = !t.done; save(); renderTasks(); renderCalendar(); }
+  function toggleDone(task) {
+    if (task.isRoutine) {
+      const overrides = state.routineOverrides[selectedDate] || { hiddenIds: [], doneIds: [] };
+      overrides.doneIds = overrides.doneIds || [];
+      if (overrides.doneIds.includes(task.routineId)) {
+        overrides.doneIds = overrides.doneIds.filter(id => id !== task.routineId);
+      } else {
+        overrides.doneIds.push(task.routineId);
+      }
+      state.routineOverrides[selectedDate] = overrides;
+      save();
+      renderTasks();
+      return;
+    }
+    const storedTask = (state.tasks[selectedDate] || []).find(x => x.id === task.id);
+    if (storedTask) { storedTask.done = !storedTask.done; save(); renderTasks(); renderCalendar(); }
   }
-  function deleteTask(id) {
-    state.tasks[selectedDate] = (state.tasks[selectedDate] || []).filter(x => x.id !== id);
+  function deleteTask(task) {
+    if (task.isRoutine) {
+      const overrides = state.routineOverrides[selectedDate] || { hiddenIds: [], doneIds: [] };
+      overrides.hiddenIds = overrides.hiddenIds || [];
+      if (!overrides.hiddenIds.includes(task.routineId)) overrides.hiddenIds.push(task.routineId);
+      state.routineOverrides[selectedDate] = overrides;
+      save();
+      renderTasks();
+      renderCalendar();
+      return;
+    }
+    if (routineDay !== null && activeContext === 'routine') {
+      state.routines[routineDay] = (state.routines[routineDay] || []).filter(x => x.id !== task.id);
+      save();
+      renderRoutineTasks();
+      renderSchedule();
+      return;
+    }
+    state.tasks[selectedDate] = (state.tasks[selectedDate] || []).filter(x => x.id !== task.id);
     save(); renderTasks(); renderCalendar();
   }
 
   function openTaskSheet() {
+    if (activeContext === 'routine' && routineDay === null) return;
+    document.querySelector('.sheet h3').textContent = activeContext === 'routine' ? 'New Routine Task' : 'New Task';
     document.getElementById('taskTitleInput').value = '';
     document.getElementById('timeInput').value = '';
     activeDur = 0;
@@ -482,12 +617,21 @@
     const title = document.getElementById('taskTitleInput').value.trim();
     if (!title) return;
     const time = document.getElementById('timeInput').value;
-    if (!state.tasks[selectedDate]) state.tasks[selectedDate] = [];
-    state.tasks[selectedDate].push({ id: uid(), title, time, dur: activeDur, done: false });
+    if (activeContext === 'routine') {
+      state.routines[routineDay].push({ id: uid(), title, time, dur: activeDur });
+    } else {
+      if (!state.tasks[selectedDate]) state.tasks[selectedDate] = [];
+      state.tasks[selectedDate].push({ id: uid(), title, time, dur: activeDur, done: false });
+    }
     save();
     closeSheet();
-    openDayView();
-    renderCalendar();
+    if (activeContext === 'routine') {
+      renderRoutineTasks();
+      renderSchedule();
+    } else {
+      openDayView();
+      renderCalendar();
+    }
   }
 
   function renderNotes() {
