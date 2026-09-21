@@ -36,9 +36,10 @@
   .day-cell.empty { visibility: hidden; }
   .month-label-row {
     grid-column: 1 / -1;
-    font-size: 13px; font-weight: 700; color: #ff6b5b;
+    font-size: 13px; font-weight: 700; color: #eee;
     padding: 14px 0 6px 4px; border-bottom: 1px solid #262626; margin-bottom: 2px;
   }
+  .month-label-year { color: #ff6b5b; }
   .dot { position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #4caf50; }
 
   .day-summary { margin-top: 16px; font-size: 12px; color: #888; }
@@ -409,30 +410,25 @@
     const todayStr = fmtDate(new Date());
     const startY = viewDate.getFullYear(), startM = viewDate.getMonth();
 
-    const firstDay = new Date(startY, startM, 1).getDay();
-    for (let i = 0; i < firstDay; i++) {
-      const empty = document.createElement('div');
-      empty.className = 'day-cell empty';
-      grid.appendChild(empty);
-    }
-
     for (let offset = 0; offset < MONTHS_TO_SHOW; offset++) {
       const monthDate = new Date(startY, startM + offset, 1);
       const y = monthDate.getFullYear(), m = monthDate.getMonth();
       const daysInMonth = new Date(y, m + 1, 0).getDate();
 
-      if (offset > 0) {
-        const label = document.createElement('div');
-        label.className = 'month-label-row';
-        label.textContent = monthDate.toLocaleString('default', { month: 'short' });
-        grid.appendChild(label);
+      const label = document.createElement('div');
+      label.className = 'month-label-row';
+      label.appendChild(document.createTextNode(monthDate.toLocaleString('default', { month: 'long' }) + ' '));
+      const year = document.createElement('span');
+      year.className = 'month-label-year';
+      year.textContent = y;
+      label.appendChild(year);
+      grid.appendChild(label);
 
-        const monthFirstDay = new Date(y, m, 1).getDay();
-        for (let i = 0; i < monthFirstDay; i++) {
-          const empty = document.createElement('div');
-          empty.className = 'day-cell empty';
-          grid.appendChild(empty);
-        }
+      const monthFirstDay = new Date(y, m, 1).getDay();
+      for (let i = 0; i < monthFirstDay; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'day-cell empty';
+        grid.appendChild(empty);
       }
 
       for (let day = 1; day <= daysInMonth; day++) {
@@ -454,11 +450,15 @@
   }
 
   function openDayView() {
+    document.querySelector('.topbar').style.display = 'none';
+    document.querySelector('.tabs').style.display = 'none';
     document.getElementById('monthSection').style.display = 'none';
     document.getElementById('dayDetailSection').style.display = 'block';
     renderTasks();
   }
   function closeDayView() {
+    document.querySelector('.topbar').style.display = '';
+    document.querySelector('.tabs').style.display = '';
     document.getElementById('dayDetailSection').style.display = 'none';
     document.getElementById('monthSection').style.display = 'block';
   }
