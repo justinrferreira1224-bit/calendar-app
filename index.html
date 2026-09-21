@@ -179,6 +179,9 @@
     background: linear-gradient(150deg, #fff, #999);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
+  .topbar h1 .title-year {
+    color: #ff6b5b; -webkit-text-fill-color: #ff6b5b; background: none;
+  }
   .tab.active { box-shadow: 0 1px 6px rgba(255,255,255,0.15); }
   .day-cell.selected {
     background: linear-gradient(150deg, #ffffff, #c2c2c2); color: #111; font-weight: 700;
@@ -402,8 +405,14 @@
   const MONTHS_TO_SHOW = 4;
 
   function renderCalendar() {
-    document.getElementById('monthLabel').textContent =
-      viewDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    const monthLabel = document.getElementById('monthLabel');
+    monthLabel.innerHTML = '';
+    const monthName = document.createElement('span');
+    monthName.textContent = viewDate.toLocaleString('default', { month: 'long' });
+    const year = document.createElement('span');
+    year.className = 'title-year';
+    year.textContent = ` ${viewDate.getFullYear()}`;
+    monthLabel.append(monthName, year);
 
     const grid = document.getElementById('daysGrid');
     grid.innerHTML = '';
