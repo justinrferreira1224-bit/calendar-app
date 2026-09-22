@@ -66,6 +66,45 @@
     position: relative; background: #1a1a1a; border: 1px solid #262626; border-radius: 10px;
     touch-action: pan-y; transition: transform 0.15s ease;
   }
+  .swipe-content.task-item-workout {
+    background: #1656d6;
+    border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(22,86,214,0.4);
+  }
+  .task-item-workout .task-title { font-size: 15px; font-weight: 700; color: #fff; text-align: center; }
+  .task-item-workout.task-item { padding: 11px 14px; justify-content: center; }
+  .task-item-workout .task-check { display: none; }
+  .task-item-workout .task-meta { text-align: center; }
+
+  .swipe-content.task-item-morning {
+    background: #e0b400;
+    border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(224,180,0,0.35);
+  }
+  .task-item-morning .task-title { font-size: 15px; font-weight: 700; color: #111; text-align: center; }
+  .task-item-morning.task-item { padding: 11px 14px; justify-content: center; }
+  .task-item-morning .task-check { display: none; }
+  .task-item-morning .task-meta { text-align: center; color: #333; }
+
+  .swipe-content.task-item-night {
+    background: #7b2fd4;
+    border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(123,47,212,0.4);
+  }
+  .task-item-night .task-title { font-size: 15px; font-weight: 700; color: #fff; text-align: center; }
+  .task-item-night.task-item { padding: 11px 14px; justify-content: center; }
+  .task-item-night .task-check { display: none; }
+  .task-item-night .task-meta { text-align: center; }
+
+  .swipe-content.task-item-work {
+    background: #1a9e5c;
+    border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(26,158,92,0.4);
+  }
+  .task-item-work .task-title { font-size: 15px; font-weight: 700; color: #fff; text-align: center; }
+  .task-item-work.task-item { padding: 11px 14px; justify-content: center; }
+  .task-item-work .task-check { display: none; }
+  .task-item-work .task-meta { text-align: center; }
 
   .task-item {
     display: flex; align-items: center; gap: 10px;
@@ -192,6 +231,15 @@
       inset 0 2px 2px rgba(255,255,255,0.6);
   }
   .day-cell.today { border: 1px solid rgba(255,255,255,0.5); }
+  .day-cell.workout-pick-glow {
+    box-shadow: 0 0 0 2px #ffd24d, 0 0 14px 4px rgba(255,210,60,0.5);
+    animation: workoutGlowPulse 1.6s ease-in-out infinite;
+    cursor: pointer;
+  }
+  @keyframes workoutGlowPulse {
+    0%, 100% { box-shadow: 0 0 0 2px #ffd24d, 0 0 10px 3px rgba(255,210,60,0.4); }
+    50% { box-shadow: 0 0 0 2px #ffe066, 0 0 20px 7px rgba(255,210,60,0.75); }
+  }
   .dot { box-shadow: 0 0 4px rgba(95,217,122,0.8); }
 
   .swipe-content {
@@ -257,6 +305,58 @@
   .btn-danger { background: linear-gradient(150deg, #e04444, #c62828); color: #fff; box-shadow: 0 2px 8px rgba(211,47,47,0.3); }
   .sheet-input {
     background: #161616; box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+  }
+
+  /* ---- Workout session (mini-game walkthrough) ---- */
+  .workout-session {
+    position: fixed; inset: 0; background: #0a0a0a; z-index: 50;
+    display: none; flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .workout-session.open { display: flex; }
+  .ws-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px;
+  }
+  .ws-close { font-size: 26px; color: #888; line-height: 1; cursor: pointer; }
+  .ws-progress { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .ws-body {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px 24px 60px 24px; text-align: center; gap: 18px; overflow-y: auto;
+  }
+  .ws-kicker { font-size: 12px; color: #1656d6; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+  .ws-title { font-size: 26px; font-weight: 800; color: #fff; line-height: 1.2; }
+  .ws-subtitle { font-size: 14px; color: #999; }
+  .ws-timer {
+    font-size: 56px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums;
+    margin: 10px 0;
+  }
+  .ws-set-row { display: flex; gap: 8px; margin: 6px 0; }
+  .ws-set-dot {
+    width: 12px; height: 12px; border-radius: 50%; background: #262626; border: 1.5px solid #3a3a3a;
+  }
+  .ws-set-dot.done { background: #1656d6; border-color: #1656d6; }
+  .ws-set-dot.current { border-color: #fff; }
+  .ws-stretch-list { text-align: left; color: #ccc; font-size: 14px; line-height: 2; max-width: 320px; }
+  .ws-btn {
+    width: 100%; max-width: 320px; padding: 16px; border-radius: 14px; border: none;
+    font-size: 16px; font-weight: 700; cursor: pointer; transition: transform 0.1s ease;
+  }
+  .ws-btn:active { transform: scale(0.97); }
+  .ws-btn-primary { background: #1656d6; color: #fff; }
+  .ws-btn-secondary { background: #1f1f1f; color: #ccc; border: 1px solid #2a2a2a; }
+  .ws-complete-icon { font-size: 56px; }
+  .ws-photo-placeholder {
+    width: 160px; height: 160px; border-radius: 16px; border: 2px dashed #333;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #777; font-size: 13px; gap: 6px; cursor: pointer;
+  }
+  .ws-photo-plus { font-size: 30px; color: #555; line-height: 1; }
+  .ws-photo-wrap { position: relative; width: 200px; }
+  .ws-photo { width: 200px; height: 200px; object-fit: cover; border-radius: 16px; display: block; }
+  .ws-photo-retake {
+    position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff;
+    font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 8px; cursor: pointer;
   }
 </style>
 </head>
@@ -346,6 +446,26 @@
   </div>
 </div>
 
+<div class="sheet-backdrop" id="workoutTimeBackdrop">
+  <div class="sheet">
+    <h3>Schedule Workout</h3>
+    <select class="sheet-input" id="workoutTimeInput"></select>
+    <div class="sheet-actions">
+      <button class="btn btn-secondary" onclick="closeWorkoutTimeSheet()">cancel</button>
+      <button class="btn btn-primary" onclick="confirmWorkoutTime()">save</button>
+    </div>
+  </div>
+</div>
+
+<div class="workout-session" id="workoutSession">
+  <div class="ws-top">
+    <span class="ws-close" onclick="exitWorkoutSession()">&times;</span>
+    <span class="ws-progress" id="wsProgress"></span>
+  </div>
+  <div class="ws-body" id="wsBody"></div>
+</div>
+<input type="file" id="wsPhotoInput" accept="image/*" capture="environment" style="display:none;">
+
 <script>
   let state = JSON.parse(localStorage.getItem('cal_state') || '{}');
   state.tasks = state.tasks || {};   // { 'YYYY-MM-DD': [ {id,title,time,dur,done} ] }
@@ -353,13 +473,427 @@
   state.routines = state.routines || { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
   for (let day = 0; day < 7; day++) state.routines[day] = state.routines[day] || [];
   state.routineOverrides = state.routineOverrides || {};
-  localStorage.setItem('cal_state', JSON.stringify(state));
+  state.exercisePhotos = state.exercisePhotos || {}; // { 'Regular curls': dataURL, ... } — user's own attached photos, persisted
+
+  // Seed "Morning Routine" / "Night Routine" on every day if not already there.
+  for (let day = 0; day < 7; day++) {
+    const hasMorning = state.routines[day].some(t => t.title === 'Morning Routine');
+    if (!hasMorning) state.routines[day].push({ id: uid(), title: 'Morning Routine', time: '', dur: 0 });
+    const hasNight = state.routines[day].some(t => t.title === 'Night Routine');
+    if (!hasNight) state.routines[day].push({ id: uid(), title: 'Night Routine', time: '', dur: 0 });
+  }
+
+  // Work days: Tuesday(2) - Saturday(6). Move it off any other day, add it where missing.
+  const WORK_DAYS = [2, 3, 4, 5, 6];
+  for (let day = 0; day < 7; day++) {
+    const onWorkDay = WORK_DAYS.includes(day);
+    const hasWork = state.routines[day].some(t => t.title === 'Work');
+    if (onWorkDay && !hasWork) {
+      state.routines[day].unshift({ id: uid(), title: 'Work', time: '', dur: 0 });
+    } else if (!onWorkDay && hasWork) {
+      state.routines[day] = state.routines[day].filter(t => t.title !== 'Work');
+    }
+  }
+  // Fixed display order for the highlighted routine boxes; anything else keeps its relative order after these.
+  const ROUTINE_ORDER = ['Workout', 'Morning Routine', 'Work', 'Night Routine'];
+  for (let day = 0; day < 7; day++) {
+    state.routines[day].sort((a, b) => {
+      const ai = ROUTINE_ORDER.indexOf(a.title), bi = ROUTINE_ORDER.indexOf(b.title);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }
+  save();
 
   let viewDate = new Date();
   let selectedDate = fmtDate(new Date());
   let activeDur = 0;
   let activeContext = 'calendar';
   let routineDay = null;
+  let highlightWorkoutPick = false;
+  let highlightWorkoutDay = 1; // which weekday (0=Sun..6=Sat) to glow — set by whichever day's box was tapped
+  let pendingWorkoutDate = null;
+  const WORKOUT_DURATION_MIN = 60; // 15m stretch + 45m lift
+
+  function startWorkoutScheduling() {
+    highlightWorkoutPick = true;
+    highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
+    switchTab('calendar');
+    renderCalendar();
+  }
+
+  function openWorkoutTimeSheet() {
+    const select = document.getElementById('workoutTimeInput');
+    select.innerHTML = '';
+    for (let h = 0; h <= 23; h++) {
+      const opt = document.createElement('option');
+      opt.value = String(h).padStart(2,'0') + ':00';
+      opt.textContent = fmtTime(opt.value);
+      select.appendChild(opt);
+    }
+    document.getElementById('workoutTimeBackdrop').classList.add('open');
+  }
+  function closeWorkoutTimeSheet() {
+    document.getElementById('workoutTimeBackdrop').classList.remove('open');
+    highlightWorkoutPick = false;
+    pendingWorkoutDate = null;
+    renderCalendar();
+  }
+  function confirmWorkoutTime() {
+    const time = document.getElementById('workoutTimeInput').value;
+    if (!time || !pendingWorkoutDate) return;
+    if (!state.tasks[pendingWorkoutDate]) state.tasks[pendingWorkoutDate] = [];
+    state.tasks[pendingWorkoutDate].push({ id: uid(), title: 'Workout', time, dur: WORKOUT_DURATION_MIN, done: false });
+    save();
+    document.getElementById('workoutTimeBackdrop').classList.remove('open');
+    highlightWorkoutPick = false;
+    selectedDate = pendingWorkoutDate;
+    pendingWorkoutDate = null;
+    renderCalendar();
+    openDayView();
+  }
+
+  // ---- Pose icons: simple stick-figure demos for each exercise/stretch ----
+  // Each entry is the inner SVG markup for a 100x100 viewBox stick figure.
+  // Shared line style is applied by the wrapping <svg> in wsIcon().
+  const POSES = {
+    'bicep-curl': `<circle cx="50" cy="18" r="8"/><line x1="50" y1="26" x2="48" y2="55"/><line x1="48" y1="55" x2="38" y2="85"/><line x1="48" y1="55" x2="60" y2="85"/><line x1="50" y1="32" x2="35" y2="45"/><line x1="35" y1="45" x2="40" y2="60"/><line x1="50" y1="32" x2="65" y2="40"/><circle cx="65" cy="40" r="3" fill="currentColor"/>`,
+    'squat': `<circle cx="50" cy="16" r="8"/><line x1="50" y1="24" x2="50" y2="52"/><line x1="50" y1="52" x2="34" y2="70"/><line x1="34" y1="70" x2="36" y2="90"/><line x1="50" y1="52" x2="66" y2="70"/><line x1="66" y1="70" x2="64" y2="90"/><line x1="50" y1="30" x2="34" y2="50"/><line x1="50" y1="30" x2="66" y2="50"/><line x1="34" y1="50" x2="66" y2="50"/>`,
+    'lunge': `<circle cx="46" cy="16" r="8"/><line x1="46" y1="24" x2="48" y2="50"/><line x1="48" y1="50" x2="28" y2="60"/><line x1="28" y1="60" x2="24" y2="88"/><line x1="48" y1="50" x2="70" y2="66"/><line x1="70" y1="66" x2="76" y2="88"/><line x1="46" y1="30" x2="30" y2="42"/><line x1="46" y1="30" x2="60" y2="20"/>`,
+    'pushup': `<circle cx="18" cy="55" r="8"/><line x1="26" y1="55" x2="80" y2="52"/><line x1="30" y1="58" x2="30" y2="82"/><line x1="70" y1="55" x2="70" y2="82"/><line x1="45" y1="56" x2="45" y2="80"/>`,
+    'row': `<circle cx="30" cy="24" r="8"/><line x1="30" y1="32" x2="60" y2="55"/><line x1="60" y1="55" x2="56" y2="86"/><line x1="60" y1="55" x2="78" y2="80"/><line x1="35" y1="40" x2="62" y2="42"/><line x1="62" y1="42" x2="50" y2="58"/>`,
+    'deadlift': `<circle cx="34" cy="20" r="8"/><line x1="34" y1="28" x2="56" y2="52"/><line x1="56" y1="52" x2="52" y2="88"/><line x1="56" y1="52" x2="70" y2="88"/><line x1="38" y1="36" x2="30" y2="70"/><line x1="30" y1="70" x2="72" y2="70"/>`,
+    'raise-front': `<circle cx="50" cy="16" r="8"/><line x1="50" y1="24" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><line x1="50" y1="30" x2="72" y2="18"/><circle cx="72" cy="18" r="3" fill="currentColor"/>`,
+    'raise-lateral': `<circle cx="50" cy="16" r="8"/><line x1="50" y1="24" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><line x1="50" y1="30" x2="20" y2="24"/><line x1="50" y1="30" x2="80" y2="24"/>`,
+    'rear-delt-flye': `<circle cx="30" cy="24" r="8"/><line x1="30" y1="32" x2="58" y2="54"/><line x1="58" y1="54" x2="54" y2="86"/><line x1="58" y1="54" x2="76" y2="80"/><line x1="35" y1="38" x2="16" y2="30"/><line x1="35" y1="38" x2="52" y2="20"/>`,
+    'shrug': `<circle cx="50" cy="20" r="8"/><line x1="50" y1="28" x2="50" y2="55"/><line x1="50" y1="55" x2="40" y2="86"/><line x1="50" y1="55" x2="60" y2="86"/><line x1="50" y1="34" x2="32" y2="42"/><line x1="50" y1="34" x2="68" y2="42"/><path d="M34 30 Q50 22 66 30" fill="none"/>`,
+    'tricep-overhead': `<circle cx="50" cy="16" r="8"/><line x1="50" y1="24" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><line x1="50" y1="28" x2="66" y2="14"/><line x1="66" y1="14" x2="58" y2="34"/>`,
+    'tricep-kickback': `<circle cx="30" cy="24" r="8"/><line x1="30" y1="32" x2="58" y2="54"/><line x1="58" y1="54" x2="54" y2="86"/><line x1="58" y1="54" x2="76" y2="80"/><line x1="34" y1="40" x2="16" y2="52"/>`,
+    'skullcrusher': `<circle cx="18" cy="60" r="8"/><line x1="26" y1="60" x2="80" y2="58"/><line x1="55" y1="59" x2="55" y2="32"/><line x1="55" y1="32" x2="66" y2="22"/>`,
+    'situp': `<circle cx="68" cy="42" r="8"/><path d="M62 48 Q45 55 32 78" fill="none"/><line x1="32" y1="78" x2="30" y2="90"/><line x1="32" y1="78" x2="12" y2="86"/><line x1="62" y1="52" x2="76" y2="60"/>`,
+    'legraise': `<circle cx="16" cy="60" r="8"/><line x1="24" y1="60" x2="58" y2="58"/><line x1="55" y1="59" x2="80" y2="20"/>`,
+    'russian-twist': `<circle cx="50" cy="26" r="8"/><path d="M50 34 Q40 55 46 78" fill="none"/><line x1="46" y1="78" x2="34" y2="90"/><line x1="46" y1="78" x2="58" y2="90"/><line x1="45" y1="42" x2="70" y2="34"/><line x1="45" y1="42" x2="66" y2="56"/>`,
+    'cat-cow': `<circle cx="78" cy="40" r="7"/><path d="M72 44 Q45 30 22 50" fill="none"/><line x1="22" y1="50" x2="22" y2="80"/><line x1="72" y1="46" x2="72" y2="80"/><line x1="45" y1="36" x2="45" y2="70"/>`,
+    'cobra': `<circle cx="78" cy="36" r="7"/><path d="M72 40 Q45 48 20 68" fill="none"/><line x1="40" y1="54" x2="34" y2="78"/>`,
+    'childs-pose': `<circle cx="18" cy="66" r="7"/><path d="M24 66 Q45 40 74 30" fill="none"/><line x1="60" y1="34" x2="80" y2="20"/><line x1="24" y1="70" x2="24" y2="82"/>`,
+    'forward-fold': `<circle cx="50" cy="46" r="8"/><path d="M50 54 Q48 70 44 84" fill="none"/><line x1="44" y1="84" x2="34" y2="92"/><line x1="44" y1="84" x2="54" y2="92"/><line x1="48" y1="58" x2="30" y2="70"/>`,
+    'spinal-twist-standing': `<circle cx="50" cy="16" r="8"/><line x1="50" y1="24" x2="50" y2="58"/><line x1="50" y1="58" x2="38" y2="88"/><line x1="50" y1="58" x2="62" y2="88"/><line x1="50" y1="32" x2="30" y2="30"/><line x1="50" y1="32" x2="70" y2="42"/>`,
+    'seated-twist': `<circle cx="50" cy="20" r="8"/><line x1="50" y1="28" x2="50" y2="56"/><line x1="50" y1="56" x2="30" y2="70"/><line x1="50" y1="56" x2="70" y2="70"/><line x1="50" y1="34" x2="32" y2="28"/><line x1="50" y1="34" x2="68" y2="44"/>`,
+    'lower-back-stretch': `<circle cx="16" cy="58" r="8"/><line x1="24" y1="58" x2="48" y2="58"/><path d="M48 58 Q56 44 66 44" fill="none"/><path d="M48 58 Q56 72 66 72" fill="none"/>`,
+    'lat-stretch': `<circle cx="50" cy="16" r="8"/><line x1="50" y1="24" x2="52" y2="58"/><line x1="52" y1="58" x2="42" y2="88"/><line x1="52" y1="58" x2="62" y2="88"/><line x1="50" y1="28" x2="74" y2="14"/><line x1="50" y1="30" x2="32" y2="40"/>`,
+    'hanging-stretch': `<circle cx="50" cy="20" r="8"/><line x1="50" y1="28" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><line x1="50" y1="26" x2="34" y2="6"/><line x1="50" y1="26" x2="66" y2="6"/>`,
+    'doorway-chest': `<circle cx="50" cy="16" r="8"/><line x1="50" y1="24" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><line x1="50" y1="30" x2="78" y2="26"/><line x1="78" y1="26" x2="78" y2="52"/>`,
+    'cross-body-shoulder': `<circle cx="50" cy="16" r="8"/><line x1="50" y1="24" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><line x1="50" y1="30" x2="78" y2="34"/><line x1="78" y1="34" x2="30" y2="38"/>`,
+    'quad-stretch': `<circle cx="46" cy="16" r="8"/><line x1="46" y1="24" x2="48" y2="55"/><line x1="48" y1="55" x2="40" y2="88"/><line x1="48" y1="55" x2="64" y2="70"/><line x1="64" y1="70" x2="52" y2="76"/><line x1="46" y1="30" x2="60" y2="66"/>`,
+    'hamstring-stretch': `<circle cx="50" cy="18" r="8"/><path d="M50 26 Q48 44 40 56" fill="none"/><line x1="40" y1="56" x2="70" y2="42"/><line x1="40" y1="56" x2="30" y2="86"/><line x1="50" y1="30" x2="60" y2="40"/>`,
+    'calf-stretch': `<circle cx="30" cy="18" r="8"/><line x1="30" y1="26" x2="34" y2="56"/><line x1="34" y1="56" x2="22" y2="88"/><line x1="34" y1="56" x2="70" y2="86"/><line x1="30" y1="30" x2="55" y2="24"/>`,
+    'hip-flexor': `<circle cx="42" cy="16" r="8"/><line x1="42" y1="24" x2="46" y2="52"/><line x1="46" y1="52" x2="30" y2="62"/><line x1="30" y1="62" x2="30" y2="86"/><line x1="46" y1="52" x2="68" y2="64"/><line x1="68" y1="64" x2="72" y2="86"/>`,
+    'glute-figure4': `<circle cx="20" cy="58" r="8"/><line x1="28" y1="58" x2="56" y2="58"/><line x1="56" y1="58" x2="80" y2="50"/><line x1="56" y1="58" x2="70" y2="76"/><line x1="70" y1="76" x2="58" y2="72"/>`,
+    'butterfly': `<circle cx="50" cy="20" r="8"/><line x1="50" y1="28" x2="50" y2="58"/><line x1="50" y1="58" x2="30" y2="68"/><line x1="50" y1="58" x2="70" y2="68"/><path d="M30 68 Q50 78 70 68" fill="none"/>`,
+    'bicep-stretch': `<circle cx="50" cy="18" r="8"/><line x1="50" y1="26" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><line x1="50" y1="32" x2="76" y2="36"/><line x1="76" y1="36" x2="66" y2="46"/>`,
+    'tricep-stretch': `<circle cx="50" cy="16" r="8"/><line x1="50" y1="24" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><line x1="50" y1="28" x2="64" y2="16"/><line x1="64" y1="16" x2="54" y2="34"/><line x1="50" y1="28" x2="40" y2="20"/>`,
+    'wrist-forearm': `<circle cx="24" cy="50" r="8"/><line x1="32" y1="50" x2="70" y2="48"/><line x1="70" y1="48" x2="60" y2="60"/><line x1="70" y1="44" x2="82" y2="52"/>`,
+    'overhead-reach': `<circle cx="50" cy="20" r="8"/><line x1="50" y1="28" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><line x1="50" y1="26" x2="34" y2="6"/><line x1="50" y1="26" x2="66" y2="6"/>`,
+    'shoulder-rolls': `<circle cx="50" cy="20" r="8"/><line x1="50" y1="28" x2="50" y2="58"/><line x1="50" y1="58" x2="40" y2="88"/><line x1="50" y1="58" x2="60" y2="88"/><path d="M30 30 A10 10 0 1 1 36 42" fill="none"/><path d="M70 30 A10 10 0 1 0 64 42" fill="none"/>`,
+    'run': `<circle cx="42" cy="16" r="8"/><line x1="42" y1="24" x2="52" y2="50"/><line x1="52" y1="50" x2="34" y2="66"/><line x1="34" y1="66" x2="44" y2="90"/><line x1="52" y1="50" x2="74" y2="58"/><line x1="74" y1="58" x2="68" y2="82"/><line x1="46" y1="32" x2="26" y2="30"/><line x1="46" y1="32" x2="60" y2="16"/>`,
+    'walk': `<circle cx="46" cy="16" r="8"/><line x1="46" y1="24" x2="50" y2="52"/><line x1="50" y1="52" x2="34" y2="60"/><line x1="34" y1="60" x2="30" y2="88"/><line x1="50" y1="52" x2="66" y2="66"/><line x1="66" y1="66" x2="70" y2="88"/><line x1="48" y1="30" x2="30" y2="36"/><line x1="48" y1="30" x2="66" y2="24"/>`,
+  };
+
+  const EXERCISE_POSE = {
+    'Regular curls': 'bicep-curl', 'Hammer curls': 'bicep-curl', 'Concentration curls': 'bicep-curl',
+    'Goblet Squats': 'squat', 'Lunges': 'lunge',
+    'Regular pushups': 'pushup', 'Incline pushups': 'pushup', 'Decline pushups': 'pushup',
+    'Bent Over Rows': 'row',
+    'Romanian Deadlifts': 'deadlift', 'Dumbbell Deadlifts': 'deadlift',
+    'Front Raises': 'raise-front', 'Lateral Raises': 'raise-lateral',
+    'Bent Over Rear Delt Flyes': 'rear-delt-flye', 'Dumbbell Shrugs': 'shrug',
+    'Overhead Tricep Extension': 'tricep-overhead', 'Tricep Kickbacks': 'tricep-kickback', 'Skull Crushers': 'skullcrusher',
+    'Sit ups': 'situp', 'Leg raises': 'legraise', 'Russian twists': 'russian-twist',
+  };
+  const STRETCH_POSE = {
+    'Cat-Cow': 'cat-cow', 'Cobra': 'cobra', "Child's Pose": 'childs-pose',
+    'Standing Forward Fold': 'forward-fold', 'Standing Spine Twist': 'spinal-twist-standing', 'Seated Spinal Twist': 'seated-twist',
+    'Lower Back Stretch': 'lower-back-stretch', 'Lat Stretch': 'lat-stretch', 'Hanging Stretch': 'hanging-stretch',
+    'Doorway Chest': 'doorway-chest', 'Cross-Body Shoulder': 'cross-body-shoulder',
+    'Quad': 'quad-stretch', 'Hamstring': 'hamstring-stretch', 'Calf': 'calf-stretch', 'Hip Flexor': 'hip-flexor',
+    'Glute (figure-4)': 'glute-figure4', 'Butterfly': 'butterfly',
+    'Bicep': 'bicep-stretch', 'Tricep': 'tricep-stretch', 'Wrist/Forearm': 'wrist-forearm',
+    'Chest': 'doorway-chest', 'Overhead Reach': 'overhead-reach', 'Shoulder Rolls': 'shoulder-rolls',
+  };
+  const CARDIO_POSE = { 'High Intensity Run': 'run', 'Walk': 'walk' };
+
+  let wsPendingPhotoName = null;
+
+  function wsPhotoSlot(name) {
+    if (!name) return '';
+    const photo = state.exercisePhotos[name];
+    const safeName = name.replace(/'/g, "\\'");
+    if (photo) {
+      return `<div class="ws-photo-wrap"><img class="ws-photo" src="${photo}"><div class="ws-photo-retake" onclick="wsPickPhoto('${safeName}')">Retake</div></div>`;
+    }
+    return `<div class="ws-photo-placeholder" onclick="wsPickPhoto('${safeName}')"><div class="ws-photo-plus">+</div><div>Add Photo</div></div>`;
+  }
+
+  function wsPickPhoto(name) {
+    wsPendingPhotoName = name;
+    document.getElementById('wsPhotoInput').click();
+  }
+
+  function wsRefreshPhotoSlot() {
+    if (!ws || !wsPendingPhotoName) return;
+    const slot = document.getElementById('wsPhotoSlot');
+    if (slot) slot.innerHTML = wsPhotoSlot(wsPendingPhotoName);
+  }
+
+  // ---- Workout session (tap-through walkthrough) ----
+  const WORKOUT_PLANS = {
+    1: { // Monday
+      stretch: ["Cat-Cow", "Cobra", "Doorway Chest", "Cross-Body Shoulder", "Child's Pose", "Hanging Stretch", "Standing Spine Twist"],
+      exercises: [
+        { name: 'Regular curls', muscle: 'Biceps (long head)', sets: 4, reps: 10 },
+        { name: 'Goblet Squats', muscle: 'Legs (quads/glutes)', sets: 4, reps: 10 },
+        { name: 'Regular pushups', muscle: 'Chest (middle)', sets: 4, reps: 10 },
+        { name: 'Bent Over Rows', muscle: 'Back (lats)', sets: 4, reps: 10 },
+        { name: 'Front Raises', muscle: 'Shoulders (front delt)', sets: 4, reps: 10 },
+        { name: 'Overhead Tricep Extension', muscle: 'Triceps (long head)', sets: 4, reps: 10 },
+        { name: 'Sit ups', muscle: 'Core (upper abs)', sets: 4, reps: 10 },
+      ],
+    },
+    2: { cardio: { name: 'High Intensity Run', detail: '40 min intervals — sprint 1 min / walk 1 min', intervalSec: 60, totalSec: 40 * 60 },
+      stretch: ["Quad", "Hamstring", "Calf", "Hip Flexor", "Glute (figure-4)", "Butterfly", "Standing Forward Fold"] },
+    3: { // Wednesday
+      stretch: ["Cat-Cow", "Child's Pose", "Lat Stretch", "Seated Spinal Twist", "Lower Back Stretch", "Cobra", "Standing Forward Fold"],
+      exercises: [
+        { name: 'Hammer curls', muscle: 'Biceps (brachialis)', sets: 4, reps: 10 },
+        { name: 'Romanian Deadlifts', muscle: 'Legs (hamstrings/glutes)', sets: 4, reps: 10 },
+        { name: 'Incline pushups', muscle: 'Chest (lower)', sets: 4, reps: 10 },
+        { name: 'Dumbbell Deadlifts', muscle: 'Back (lower back)', sets: 4, reps: 10 },
+        { name: 'Lateral Raises', muscle: 'Shoulders (side delt)', sets: 4, reps: 10 },
+        { name: 'Tricep Kickbacks', muscle: 'Triceps (lateral head)', sets: 4, reps: 10 },
+        { name: 'Leg raises', muscle: 'Core (lower abs)', sets: 4, reps: 10 },
+      ],
+    },
+    4: { cardio: { name: 'Walk', detail: '40 min steady pace', totalSec: 40 * 60 },
+      stretch: ["Quad", "Hamstring", "Calf", "Hip Flexor", "Glute (figure-4)", "Butterfly", "Standing Forward Fold"] },
+    5: { // Friday
+      stretch: ["Bicep", "Tricep", "Wrist/Forearm", "Cross-Body Shoulder", "Chest", "Overhead Reach", "Shoulder Rolls"],
+      exercises: [
+        { name: 'Concentration curls', muscle: 'Biceps (short head)', sets: 4, reps: 10 },
+        { name: 'Lunges', muscle: 'Legs (quads, diff angle)', sets: 4, reps: 10 },
+        { name: 'Decline pushups', muscle: 'Chest (upper)', sets: 4, reps: 10 },
+        { name: 'Dumbbell Shrugs', muscle: 'Back (traps)', sets: 4, reps: 10 },
+        { name: 'Bent Over Rear Delt Flyes', muscle: 'Shoulders (rear delt)', sets: 4, reps: 10 },
+        { name: 'Skull Crushers', muscle: 'Triceps (medial head)', sets: 4, reps: 10 },
+        { name: 'Russian twists', muscle: 'Core (obliques)', sets: 4, reps: 10 },
+      ],
+    },
+  };
+  const REST_SEC = 60;
+  const STRETCH_SEC = 15 * 60;
+
+  let ws = null; // active session state
+  let wsTimerHandle = null;
+
+  function openWorkoutSession(scheduledTask) {
+    const weekday = new Date(selectedDate + 'T00:00').getDay();
+    const plan = WORKOUT_PLANS[weekday];
+    if (!plan) return;
+    ws = {
+      task: scheduledTask,
+      plan,
+      phase: 'stretch',   // 'stretch' -> 'exercise' -> 'cardio' -> 'complete'
+      exerciseIndex: 0,
+      setIndex: 0,
+      secondsLeft: 0,
+      resting: false,
+    };
+    document.getElementById('workoutSession').classList.add('open');
+    wsRenderStretch();
+  }
+
+  function exitWorkoutSession() {
+    clearInterval(wsTimerHandle);
+    wsTimerHandle = null;
+    document.getElementById('workoutSession').classList.remove('open');
+    ws = null;
+  }
+
+  function wsSetProgress(text) { document.getElementById('wsProgress').textContent = text; }
+
+  function wsStartCountdown(seconds, onTick, onDone) {
+    clearInterval(wsTimerHandle);
+    ws.secondsLeft = seconds;
+    onTick();
+    wsTimerHandle = setInterval(() => {
+      ws.secondsLeft--;
+      if (ws.secondsLeft <= 0) {
+        clearInterval(wsTimerHandle);
+        wsTimerHandle = null;
+        onTick();
+        onDone();
+      } else {
+        onTick();
+      }
+    }, 1000);
+  }
+
+  function wsFmtClock(sec) {
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  function wsStretchDuration(index, total) {
+    // Split STRETCH_SEC evenly across all stretches; last one absorbs the remainder.
+    const base = Math.floor(STRETCH_SEC / total);
+    return index === total - 1 ? STRETCH_SEC - base * (total - 1) : base;
+  }
+
+  function wsRenderStretch() {
+    ws.stretchIndex = 0;
+    wsRenderStretchStep();
+  }
+
+  function wsRenderStretchStep() {
+    const list = ws.plan.stretch;
+    const total = list.length;
+    const name = list[ws.stretchIndex];
+    const dur = wsStretchDuration(ws.stretchIndex, total);
+    wsSetProgress(`Stretch ${ws.stretchIndex + 1} of ${total}`);
+    const body = document.getElementById('wsBody');
+    body.innerHTML = `
+      <div class="ws-kicker">Warm-up</div>
+      <div class="ws-title">${name}</div>
+      <div id="wsPhotoSlot">${wsPhotoSlot(name)}</div>
+      <div class="ws-timer" id="wsClock">${wsFmtClock(dur)}</div>
+      <button class="ws-btn ws-btn-secondary" onclick="wsSkipStretch()">Skip</button>
+    `;
+    wsStartCountdown(dur,
+      () => { const el = document.getElementById('wsClock'); if (el) el.textContent = wsFmtClock(ws.secondsLeft); },
+      () => wsAdvanceStretch()
+    );
+  }
+
+  function wsSkipStretch() {
+    clearInterval(wsTimerHandle);
+    wsAdvanceStretch();
+  }
+
+  function wsAdvanceStretch() {
+    ws.stretchIndex++;
+    if (ws.stretchIndex >= ws.plan.stretch.length) {
+      wsFinishStretch();
+    } else {
+      wsRenderStretchStep();
+    }
+  }
+
+  function wsFinishStretch() {
+    clearInterval(wsTimerHandle);
+    ws.phase = 'exercise';
+    ws.exerciseIndex = 0;
+    ws.setIndex = 0;
+    if (ws.plan.exercises) {
+      wsRenderExercise();
+    } else if (ws.plan.cardio) {
+      ws.phase = 'cardio';
+      wsRenderCardio();
+    }
+  }
+
+  function wsRenderExercise() {
+    const ex = ws.plan.exercises[ws.exerciseIndex];
+    wsSetProgress(`Exercise ${ws.exerciseIndex + 1} of ${ws.plan.exercises.length}`);
+    const dots = Array.from({ length: ex.sets }, (_, i) => {
+      const cls = i < ws.setIndex ? 'done' : (i === ws.setIndex ? 'current' : '');
+      return `<div class="ws-set-dot ${cls}"></div>`;
+    }).join('');
+    const body = document.getElementById('wsBody');
+    body.innerHTML = `
+      <div class="ws-kicker">${ex.muscle}</div>
+      <div class="ws-title">${ex.name}</div>
+      <div id="wsPhotoSlot">${wsPhotoSlot(ex.name)}</div>
+      <div class="ws-subtitle">Set ${ws.setIndex + 1} of ${ex.sets} &middot; ${ex.reps} reps</div>
+      <div class="ws-set-row">${dots}</div>
+      <button class="ws-btn ws-btn-primary" onclick="wsCompleteSet()">Complete Set</button>
+    `;
+  }
+
+  function wsCompleteSet() {
+    const ex = ws.plan.exercises[ws.exerciseIndex];
+    ws.setIndex++;
+    if (ws.setIndex >= ex.sets) {
+      wsAdvanceExercise();
+    } else {
+      wsRenderRest();
+    }
+  }
+
+  function wsRenderRest() {
+    const body = document.getElementById('wsBody');
+    body.innerHTML = `
+      <div class="ws-kicker">Rest</div>
+      <div class="ws-timer" id="wsClock">${wsFmtClock(REST_SEC)}</div>
+      <button class="ws-btn ws-btn-secondary" onclick="wsSkipRest()">Skip Rest</button>
+    `;
+    wsStartCountdown(REST_SEC,
+      () => { const el = document.getElementById('wsClock'); if (el) el.textContent = wsFmtClock(ws.secondsLeft); },
+      () => wsRenderExercise()
+    );
+  }
+  function wsSkipRest() {
+    clearInterval(wsTimerHandle);
+    wsRenderExercise();
+  }
+
+  function wsAdvanceExercise() {
+    ws.exerciseIndex++;
+    ws.setIndex = 0;
+    if (ws.exerciseIndex >= ws.plan.exercises.length) {
+      wsRenderComplete();
+    } else {
+      wsRenderExercise();
+    }
+  }
+
+  function wsRenderCardio() {
+    const c = ws.plan.cardio;
+    wsSetProgress(c.name);
+    const body = document.getElementById('wsBody');
+    body.innerHTML = `
+      <div class="ws-kicker">${c.detail}</div>
+      <div class="ws-title">${c.name}</div>
+      <div id="wsPhotoSlot">${wsPhotoSlot(c.name)}</div>
+      <div class="ws-timer" id="wsClock">${wsFmtClock(c.totalSec)}</div>
+      <button class="ws-btn ws-btn-primary" onclick="wsRenderComplete()">Finish</button>
+    `;
+    wsStartCountdown(c.totalSec,
+      () => { const el = document.getElementById('wsClock'); if (el) el.textContent = wsFmtClock(ws.secondsLeft); },
+      () => wsRenderComplete()
+    );
+  }
+
+  function wsRenderComplete() {
+    clearInterval(wsTimerHandle);
+    wsSetProgress('Done');
+    const body = document.getElementById('wsBody');
+    body.innerHTML = `
+      <div class="ws-complete-icon">&#128170;</div>
+      <div class="ws-title">Workout Complete</div>
+      <button class="ws-btn ws-btn-primary" onclick="wsFinishSession()">Done</button>
+    `;
+  }
+
+  function wsFinishSession() {
+    if (ws && ws.task) {
+      ws.task.done = true;
+      save();
+    }
+    exitWorkoutSession();
+    renderTasks();
+    renderCalendar();
+  }
 
   // Custom confirm modal — native confirm()/window.confirm can get silently
   // blocked in sandboxed embedded views, so we roll our own.
@@ -379,7 +913,12 @@
   }
 
   function save() { localStorage.setItem('cal_state', JSON.stringify(state)); }
-  function fmtDate(d) { return d.toISOString().slice(0,10); }
+  function fmtDate(d) {
+    // Local date components, not UTC — toISOString() shifts to the next
+    // calendar day once local time is late enough to cross into the next UTC day.
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
   function uid() { return Date.now() + Math.random().toString(36).slice(2,6); }
 
   function switchTab(tab) {
@@ -434,18 +973,42 @@
       }
 
       for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = fmtDate(new Date(y, m, day));
+        const cellDate = new Date(y, m, day);
+        const dateStr = fmtDate(cellDate);
         const cell = document.createElement('div');
         cell.className = 'day-cell';
         if (dateStr === todayStr) cell.classList.add('today');
         if (dateStr === selectedDate) cell.classList.add('selected');
         cell.textContent = day;
-        if ((state.tasks[dateStr] || []).length || getRoutineTasks(dateStr).length) {
+        if ((state.tasks[dateStr] || []).length) {
           const dot = document.createElement('div');
           dot.className = 'dot';
           cell.appendChild(dot);
         }
-        cell.onclick = () => { selectedDate = dateStr; renderCalendar(); openDayView(); };
+
+        let isGlowPick = false;
+        if (highlightWorkoutPick && cellDate.getDay() === highlightWorkoutDay) {
+          const today0 = new Date(); today0.setHours(0,0,0,0);
+          const cellDate0 = new Date(cellDate); cellDate0.setHours(0,0,0,0);
+          if (cellDate0 >= today0) {
+            isGlowPick = true;
+            cell.classList.add('workout-pick-glow');
+          }
+        }
+
+        cell.onclick = () => {
+          if (highlightWorkoutPick) {
+            if (isGlowPick) {
+              pendingWorkoutDate = dateStr;
+              openWorkoutTimeSheet();
+            } else {
+              highlightWorkoutPick = false;
+              renderCalendar();
+            }
+            return;
+          }
+          selectedDate = dateStr; renderCalendar(); openDayView();
+        };
         grid.appendChild(cell);
       }
     }
@@ -529,7 +1092,7 @@
       new Date(selectedDate + 'T00:00').toLocaleDateString('default', { weekday: 'long', month: 'short', day: 'numeric' });
 
     const oneOffTasks = state.tasks[selectedDate] || [];
-    const allTasks = [...oneOffTasks, ...getRoutineTasks(selectedDate)];
+    const allTasks = [...oneOffTasks, ...getRoutineTasks(selectedDate).filter(task => task.time)];
     const done = allTasks.filter(t => t.done).length;
     document.getElementById('progressLabel').textContent =
       `${done} done · ${allTasks.length ? Math.round(done/allTasks.length*100) : 0}%`;
@@ -575,14 +1138,6 @@
       });
 
     if (cursor < DAY_END) addGap(cursor, DAY_END);
-
-    if (unscheduled.length) {
-      const label = document.createElement('div');
-      label.className = 'unscheduled-label';
-      label.textContent = 'Unscheduled';
-      list.appendChild(label);
-      unscheduled.forEach(t => list.appendChild(taskCard(t)));
-    }
   }
 
   // Wraps any content element in swipe-to-delete: drag/click-hold-drag left reveals
@@ -659,16 +1214,34 @@
 
   function taskCard(t, options = {}) {
     const isRoutine = options.routineTemplate || t.isRoutine;
+    const isScheduledWorkout = t.title === 'Workout' && !isRoutine;
     const item = document.createElement('div');
     item.className = 'task-item';
-    item.innerHTML = `
+    item.innerHTML = isScheduledWorkout ? `
+      <div class="task-check ${t.done ? 'done' : ''}"></div>
+      <div class="task-body">
+        <div class="task-title ${t.done ? 'done' : ''}">START WORKOUT?</div>
+      </div>
+    ` : `
       <div class="task-check ${t.done ? 'done' : ''}${isRoutine && options.routineTemplate ? ' hidden' : ''}"></div>
       <div class="task-body">
         <div class="task-title ${t.done ? 'done' : ''}">${t.title}</div>
-        <div class="task-meta">${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}${isRoutine ? ' · <span class="routine-label">routine</span>' : ''}</div>
+        <div class="task-meta">${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}</div>
       </div>
     `;
     if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
+    if (t.title === 'Workout') item.classList.add('task-item-workout');
+    if (t.title === 'Morning Routine') item.classList.add('task-item-morning');
+    if (t.title === 'Night Routine') item.classList.add('task-item-night');
+    if (t.title === 'Work') item.classList.add('task-item-work');
+    if (isRoutine && options.routineTemplate && t.title === 'Workout') {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); startWorkoutScheduling(); });
+    }
+    if (isScheduledWorkout) {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); openWorkoutSession(t); });
+    }
     return makeSwipeable(item, () => deleteTask(t), isRoutine ? 'this routine' : 'this task');
   }
 
@@ -783,6 +1356,19 @@
     input.value = '';
     renderNotes();
   }
+
+  document.getElementById('wsPhotoInput').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file || !wsPendingPhotoName) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.exercisePhotos[wsPendingPhotoName] = reader.result;
+      save();
+      wsRefreshPhotoSlot();
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
 
   renderCalendar();
   renderNotes();
