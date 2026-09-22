@@ -1364,9 +1364,25 @@
     if (!file || !wsPendingPhotoName) return;
     const reader = new FileReader();
     reader.onload = () => {
-      state.exercisePhotos[wsPendingPhotoName] = reader.result;
-      save();
-      wsRefreshPhotoSlot();
+      const image = new Image();
+      image.onload = () => {
+        const maxDimension = 700;
+        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        const photoName = wsPendingPhotoName;
+        state.exercisePhotos[photoName] = canvas.toDataURL('image/jpeg', 0.7);
+        try {
+          save();
+          wsRefreshPhotoSlot();
+        } catch (error) {
+          delete state.exercisePhotos[photoName];
+          alert('This photo could not be saved. Please choose a smaller image.');
+        }
+      };
+      image.src = reader.result;
     };
     reader.readAsDataURL(file);
     e.target.value = '';
