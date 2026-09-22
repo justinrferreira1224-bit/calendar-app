@@ -552,7 +552,9 @@
     selectedDate = pendingWorkoutDate;
     pendingWorkoutDate = null;
     renderCalendar();
-    openDayView();
+    const scheduledWeekday = highlightWorkoutDay;
+    switchTab('schedule');
+    openRoutineDay(scheduledWeekday);
   }
 
   // ---- Pose icons: simple stick-figure demos for each exercise/stretch ----
