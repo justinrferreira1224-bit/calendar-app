@@ -31,8 +31,8 @@
     aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
     border-radius: 50%; font-size: 13px; color: #ccc; position: relative;
   }
-  .day-cell.today { border: 1px solid #fff; }
-  .day-cell.selected { background: #fff; color: #111; font-weight: 700; }
+  .day-cell.selected { background: transparent; border: 1.5px solid #fff; color: #eee; }
+  .day-cell.today { background: #fff; color: #111; font-weight: 700; border: none; }
   .day-cell.empty { visibility: hidden; }
   .month-label-row {
     grid-column: 1 / -1;
@@ -104,7 +104,7 @@
   .task-item-work .task-title { font-size: 15px; font-weight: 700; color: #fff; text-align: center; }
   .task-item-work.task-item { padding: 11px 14px; justify-content: center; }
   .task-item-work .task-check { display: none; }
-  .task-item-work .task-meta { text-align: center; }
+  .task-item-work .task-meta { text-align: center; color: rgba(255,255,255,0.85); }
 
   .task-item {
     display: flex; align-items: center; gap: 10px;
@@ -223,14 +223,16 @@
   }
   .tab.active { box-shadow: 0 1px 6px rgba(255,255,255,0.15); }
   .day-cell.selected {
-    background: linear-gradient(150deg, #ffffff, #c2c2c2); color: #111; font-weight: 700;
+    background: transparent; border: 1.5px solid rgba(255,255,255,0.7); color: #eee; font-weight: 400;
+  }
+  .day-cell.today {
+    background: linear-gradient(150deg, #ffffff, #c2c2c2); color: #111; font-weight: 700; border: none;
     box-shadow:
       0 6px 16px rgba(255,255,255,0.3),
       0 2px 4px rgba(0,0,0,0.4),
       inset 0 -3px 4px rgba(0,0,0,0.2),
       inset 0 2px 2px rgba(255,255,255,0.6);
   }
-  .day-cell.today { border: 1px solid rgba(255,255,255,0.5); }
   .day-cell.workout-pick-glow {
     box-shadow: 0 0 0 2px #ffd24d, 0 0 14px 4px rgba(255,210,60,0.5);
     animation: workoutGlowPulse 1.6s ease-in-out infinite;
@@ -239,6 +241,11 @@
   @keyframes workoutGlowPulse {
     0%, 100% { box-shadow: 0 0 0 2px #ffd24d, 0 0 10px 3px rgba(255,210,60,0.4); }
     50% { box-shadow: 0 0 0 2px #ffe066, 0 0 20px 7px rgba(255,210,60,0.75); }
+  }
+  .day-cell.workout-pick-glow-taken {
+    box-shadow: 0 0 0 2px #555, 0 0 10px 2px rgba(120,120,120,0.35);
+    color: #777;
+    cursor: default;
   }
   .dot { box-shadow: 0 0 4px rgba(95,217,122,0.8); }
 
@@ -370,8 +377,9 @@
 
   <div class="tabs">
     <div class="tab" data-tab="schedule" onclick="switchTab('schedule')">Schedule</div>
-    <div class="tab active" data-tab="calendar" onclick="switchTab('calendar')">🗓️ Calendar</div>
-    <div class="tab" data-tab="notes" onclick="switchTab('notes')">📝 Notes</div>
+    <div class="tab active" data-tab="calendar" onclick="switchTab('calendar')">Calendar</div>
+    <div class="tab" data-tab="notes" onclick="switchTab('notes')">Notes</div>
+    <div class="tab" data-tab="report" onclick="switchTab('report')">Report</div>
   </div>
 
   <div class="view" id="view-schedule">
@@ -412,6 +420,15 @@
     <div id="notesList"></div>
   </div>
 
+  <div class="view" id="view-report">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span style="cursor:pointer;font-size:18px;color:#ccc;padding:4px 10px 4px 0;" onclick="shiftReportWeek(-1)">&larr;</span>
+      <span class="day-view-title" id="reportWeekLabel">This Week</span>
+      <span style="cursor:pointer;font-size:18px;color:#ccc;padding:4px 0 4px 10px;" onclick="shiftReportWeek(1)">&rarr;</span>
+    </div>
+    <div id="reportBody"></div>
+  </div>
+
   <div class="fab" onclick="openTaskSheet()">+</div>
 
 </div>
@@ -448,8 +465,9 @@
 
 <div class="sheet-backdrop" id="workoutTimeBackdrop">
   <div class="sheet">
-    <h3>Schedule Workout</h3>
+    <h3 id="workoutTimeSheetTitle">Schedule Workout</h3>
     <select class="sheet-input" id="workoutTimeInput"></select>
+    <select class="sheet-input" id="workoutEndTimeInput" style="display:none;"></select>
     <div class="sheet-actions">
       <button class="btn btn-secondary" onclick="closeWorkoutTimeSheet()">cancel</button>
       <button class="btn btn-primary" onclick="confirmWorkoutTime()">save</button>
@@ -457,9 +475,30 @@
   </div>
 </div>
 
+<div class="sheet-backdrop" id="jobPickBackdrop">
+  <div class="sheet">
+    <h3>Which job?</h3>
+    <div class="chip-row" id="jobChipRow"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-secondary" onclick="closeJobPickSheet()">cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="clockBackdrop">
+  <div class="sheet">
+    <h3 id="clockSheetTitle">Clock In</h3>
+    <div id="clockSheetBody"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-secondary" onclick="closeClockSheet()">cancel</button>
+      <button class="btn btn-primary" id="clockSheetNextBtn" onclick="clockSheetNext()">next</button>
+    </div>
+  </div>
+</div>
+
 <div class="workout-session" id="workoutSession">
   <div class="ws-top">
-    <span class="ws-close" onclick="exitWorkoutSession()">&times;</span>
+    <span class="ws-close" onclick="closeAnySession()">&times;</span>
     <span class="ws-progress" id="wsProgress"></span>
   </div>
   <div class="ws-body" id="wsBody"></div>
@@ -483,8 +522,20 @@
     if (!hasNight) state.routines[day].push({ id: uid(), title: 'Night Routine', time: '', dur: 0 });
   }
 
+  // Workout days: Monday(1) - Friday(5). Move it off any other day, add it where missing.
+  const WORKOUT_DAYS = [1, 2, 3, 4, 5];
+  for (let day = 0; day < 7; day++) {
+    const onWorkoutDay = WORKOUT_DAYS.includes(day);
+    const hasWorkout = state.routines[day].some(t => t.title === 'Workout');
+    if (onWorkoutDay && !hasWorkout) {
+      state.routines[day].unshift({ id: uid(), title: 'Workout', time: '', dur: 0 });
+    } else if (!onWorkoutDay && hasWorkout) {
+      state.routines[day] = state.routines[day].filter(t => t.title !== 'Workout');
+    }
+  }
+
   // Work days: Tuesday(2) - Saturday(6). Move it off any other day, add it where missing.
-  const WORK_DAYS = [2, 3, 4, 5, 6];
+  const WORK_DAYS = [0, 1, 2, 3, 4, 5, 6];
   for (let day = 0; day < 7; day++) {
     const onWorkDay = WORK_DAYS.includes(day);
     const hasWork = state.routines[day].some(t => t.title === 'Work');
@@ -516,16 +567,275 @@
   let highlightWorkoutDay = 1; // which weekday (0=Sun..6=Sat) to glow — set by whichever day's box was tapped
   let pendingWorkoutDate = null;
   const WORKOUT_DURATION_MIN = 60; // 15m stretch + 45m lift
+  const MORNING_DURATION_MIN = 90; // longest version (shave day) of the morning routine
+
+  // Which routine is currently being scheduled via the gold-glow calendar pick.
+  let pendingScheduleTitle = 'Workout';
+  let pendingScheduleDur = WORKOUT_DURATION_MIN;
 
   function startWorkoutScheduling() {
+    pendingScheduleTitle = 'Workout';
+    pendingScheduleDur = WORKOUT_DURATION_MIN;
     highlightWorkoutPick = true;
     highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
     switchTab('calendar');
     renderCalendar();
   }
 
-  function openWorkoutTimeSheet() {
-    const select = document.getElementById('workoutTimeInput');
+  function startMorningScheduling() {
+    pendingScheduleTitle = 'Morning Routine';
+    pendingScheduleDur = MORNING_DURATION_MIN;
+    highlightWorkoutPick = true;
+    highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
+    switchTab('calendar');
+    renderCalendar();
+  }
+
+  // ---- Work: pick a job, then a date, then start/end time (shift length varies) ----
+  const JOB_RATES = { '1-800-Got-Junk': 18, 'CarMax': 20, 'Valet': 19 };
+  let pendingWorkJob = null;
+
+  function startWorkScheduling() {
+    const row = document.getElementById('jobChipRow');
+    row.innerHTML = '';
+    Object.keys(JOB_RATES).forEach(job => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = job;
+      chip.onclick = () => {
+        pendingWorkJob = job;
+        closeJobPickSheet();
+        pendingScheduleTitle = 'Work';
+        pendingScheduleDur = 0; // computed from start/end once both are picked
+        highlightWorkoutPick = true;
+        highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
+        switchTab('calendar');
+        renderCalendar();
+      };
+      row.appendChild(chip);
+    });
+    document.getElementById('jobPickBackdrop').classList.add('open');
+  }
+  function closeJobPickSheet() {
+    document.getElementById('jobPickBackdrop').classList.remove('open');
+  }
+
+  // ---- Work: clock in/out + shift rating (tap a scheduled Work card) ----
+  const SHIFT_SMILEYS = ['😣', '🙁', '😐', '🙂', '😄'];
+  let clockTask = null; // the REAL stored task object (resolved via _dateKey if tapped from a continuation card)
+  let clockStep = 1;
+  let clockInVal = '';
+  let clockOutVal = '';
+  let clockRating = null;
+
+  function openClockFlow(t) {
+    const dateKey = t._dateKey || selectedDate;
+    const real = (state.tasks[dateKey] || []).find(x => x.id === t.id);
+    if (!real) return;
+    clockTask = real;
+    clockStep = 1;
+    clockInVal = real.clockIn || real.time;
+    clockOutVal = real.clockOut || minutesToTime(timeToMinutes(real.time) + real.dur);
+    clockRating = (real.shiftRating != null) ? real.shiftRating : null;
+    renderClockStep();
+    document.getElementById('clockBackdrop').classList.add('open');
+  }
+  function closeClockSheet() {
+    document.getElementById('clockBackdrop').classList.remove('open');
+    clockTask = null;
+  }
+  function renderClockStep() {
+    const title = document.getElementById('clockSheetTitle');
+    const body = document.getElementById('clockSheetBody');
+    const nextBtn = document.getElementById('clockSheetNextBtn');
+    body.innerHTML = '';
+    if (clockStep === 1) {
+      title.textContent = 'Clock in — ' + clockTask.job;
+      const inp = document.createElement('input');
+      inp.type = 'time';
+      inp.className = 'sheet-input';
+      inp.id = 'clockTimeSelect';
+      inp.value = clockInVal;
+      body.appendChild(inp);
+      nextBtn.textContent = 'next';
+    } else if (clockStep === 2) {
+      title.textContent = 'Clock out — ' + clockTask.job;
+      const inp = document.createElement('input');
+      inp.type = 'time';
+      inp.className = 'sheet-input';
+      inp.id = 'clockTimeSelect';
+      inp.value = clockOutVal;
+      body.appendChild(inp);
+      nextBtn.textContent = 'next';
+    } else {
+      title.textContent = 'How was your shift?';
+      const row = document.createElement('div');
+      row.className = 'chip-row';
+      row.style.justifyContent = 'center';
+      row.style.fontSize = '30px';
+      row.style.gap = '10px';
+      SHIFT_SMILEYS.forEach((face, i) => {
+        const btn = document.createElement('div');
+        btn.textContent = face;
+        btn.style.cursor = 'pointer';
+        btn.style.padding = '6px 10px';
+        btn.style.borderRadius = '10px';
+        btn.style.border = '1.5px solid ' + (clockRating === i ? '#fff' : 'transparent');
+        btn.style.background = clockRating === i ? '#262626' : 'transparent';
+        btn.onclick = () => { clockRating = i; renderClockStep(); };
+        row.appendChild(btn);
+      });
+      body.appendChild(row);
+      nextBtn.textContent = 'save';
+    }
+  }
+  function clockSheetNext() {
+    if (clockStep === 1) {
+      clockInVal = document.getElementById('clockTimeSelect').value;
+      clockStep = 2;
+      renderClockStep();
+    } else if (clockStep === 2) {
+      clockOutVal = document.getElementById('clockTimeSelect').value;
+      clockStep = 3;
+      renderClockStep();
+    } else {
+      const [sh, sm] = clockInVal.split(':').map(Number);
+      const [eh, em] = clockOutVal.split(':').map(Number);
+      let dur = (eh * 60 + em) - (sh * 60 + sm);
+      if (dur <= 0) dur += 24 * 60; // overnight actual shift too
+      const rate = clockTask.rate || JOB_RATES[clockTask.job] || 0;
+      const pay = Math.round(rate * dur / 60 * 100) / 100;
+      clockTask.clockIn = clockInVal;
+      clockTask.clockOut = clockOutVal;
+      clockTask.actualDur = dur;
+      clockTask.actualPay = pay;
+      clockTask.shiftRating = clockRating;
+      clockTask.clockedOut = true;
+      save();
+      closeClockSheet();
+      renderTasks();
+      renderCalendar();
+      if (document.getElementById('view-report').classList.contains('active')) renderReport();
+    }
+  }
+
+  // ---- Weekly report: hours/pay per job, rolled up Sun-Sat ----
+  function startOfWeek(dateStr) {
+    const d = new Date(dateStr + 'T00:00');
+    d.setDate(d.getDate() - d.getDay());
+    return fmtDate(d);
+  }
+  let reportWeekStart = startOfWeek(fmtDate(new Date()));
+
+  function shiftReportWeek(dir) {
+    reportWeekStart = addDays(reportWeekStart, dir * 7);
+    renderReport();
+  }
+
+  function renderReport() {
+    const label = document.getElementById('reportWeekLabel');
+    const weekDates = [];
+    for (let i = 0; i < 7; i++) weekDates.push(addDays(reportWeekStart, i));
+    const fmtShort = (ds) => new Date(ds + 'T00:00').toLocaleDateString('default', { month: 'short', day: 'numeric' });
+    label.textContent = `${fmtShort(reportWeekStart)} – ${fmtShort(weekDates[6])}`;
+
+    // ---- Money Made: only shifts that have actually been clocked out count. A job with
+    // nothing completed yet this week doesn't show up at all — no name, no "pending" line.
+    const perJob = {};
+    let totalHours = 0, totalPay = 0, completedShifts = 0;
+    weekDates.forEach(dateStr => {
+      (state.tasks[dateStr] || []).forEach(t => {
+        if (t.title !== 'Work' || !t.job || !t.clockedOut) return;
+        const hours = t.actualDur / 60;
+        if (!perJob[t.job]) perJob[t.job] = { hours: 0, pay: 0, shifts: 0, ratings: [] };
+        perJob[t.job].hours += hours;
+        perJob[t.job].pay += t.actualPay;
+        perJob[t.job].shifts += 1;
+        if (t.shiftRating != null) perJob[t.job].ratings.push(t.shiftRating);
+        totalHours += hours;
+        totalPay += t.actualPay;
+        completedShifts += 1;
+      });
+    });
+
+    // ---- Workout Tracker: scheduled workouts this week vs. how many got finished.
+    let workoutScheduled = 0, workoutDone = 0;
+    weekDates.forEach(dateStr => {
+      (state.tasks[dateStr] || []).forEach(t => {
+        if (t.title !== 'Workout') return;
+        workoutScheduled += 1;
+        if (t.done) workoutDone += 1;
+      });
+    });
+
+    let html = `<div class="task-header" style="margin:0 0 8px 0;"><h2>Money Made</h2></div>`;
+    if (!completedShifts) {
+      html += `<div class="empty-state" style="margin:4px 0 0 0;">No shifts completed yet this week.</div>`;
+    } else {
+      Object.keys(JOB_RATES).forEach(job => {
+        const d = perJob[job];
+        if (!d) return;
+        html += `
+          <div class="hour-block" style="margin-bottom:8px;background:#1a9e5c;border:1.5px solid #fff;padding:8px 12px;height:44px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="font-weight:700;font-size:13px;color:#fff;">${job}</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.75);">${d.shifts} shift${d.shifts > 1 ? 's' : ''}</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+              <div style="font-size:12px;color:rgba(255,255,255,0.85);">${d.hours.toFixed(1)}h</div>
+              <div style="font-size:14px;font-weight:700;color:#fff;">$${d.pay.toFixed(2)}</div>
+            </div>
+          </div>`;
+      });
+      html += `
+        <div class="hour-block" style="background:#13793f;border:1.5px solid #fff;padding:8px 12px;height:44px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:700;font-size:13px;color:#fff;">Total</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.75);">${completedShifts} shift${completedShifts > 1 ? 's' : ''}</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+            <div style="font-size:12px;color:rgba(255,255,255,0.85);">${totalHours.toFixed(1)}h</div>
+            <div style="font-size:15px;font-weight:800;color:#fff;">$${totalPay.toFixed(2)}</div>
+          </div>
+        </div>`;
+
+      const allRatings = [];
+      Object.values(perJob).forEach(d => allRatings.push(...d.ratings));
+      if (allRatings.length) {
+        const moodAvg = Math.round(allRatings.reduce((a, b) => a + b, 0) / allRatings.length);
+        // SHIFT_SMILEYS is angriest(0) -> happiest(4): 0-1 bad (red), 2 mid (yellow), 3-4 good (green)
+        const moodColor = moodAvg <= 1 ? '#c62828' : moodAvg === 2 ? '#c99a00' : '#1a9e5c';
+        html += `
+          <div class="hour-block" style="margin-top:8px;background:${moodColor};border:1.5px solid #fff;padding:8px 12px;height:44px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="font-weight:700;font-size:13px;color:#fff;">Weekly Mood</div>
+              <div style="font-size:20px;">${SHIFT_SMILEYS[moodAvg]}</div>
+            </div>
+          </div>`;
+      }
+    }
+
+    html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Workout Tracker</h2></div>`;
+    if (!workoutScheduled) {
+      html += `<div class="empty-state" style="margin:4px 0 0 0;">No workouts scheduled this week.</div>`;
+    } else {
+      const pct = Math.round((workoutDone / workoutScheduled) * 100);
+      html += `
+        <div class="hour-block" style="background:#1656d6;border:1.5px solid #fff;padding:8px 12px;height:44px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="font-weight:700;font-size:13px;color:#fff;">Workouts completed</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.75);">${pct}%</div>
+          </div>
+          <div style="width:100%;height:8px;background:rgba(0,0,0,0.3);border-radius:6px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:#fff;border-radius:6px;"></div>
+          </div>
+        </div>`;
+    }
+
+    document.getElementById('reportBody').innerHTML = html;
+  }
+
+  function hourOptions(select) {
     select.innerHTML = '';
     for (let h = 0; h <= 23; h++) {
       const opt = document.createElement('option');
@@ -533,24 +843,85 @@
       opt.textContent = fmtTime(opt.value);
       select.appendChild(opt);
     }
+  }
+
+  function openWorkoutTimeSheet() {
+    document.getElementById('workoutTimeSheetTitle').textContent = 'Schedule ' + pendingScheduleTitle;
+    const select = document.getElementById('workoutTimeInput');
+    const endSelect = document.getElementById('workoutEndTimeInput');
+    const isWork = pendingScheduleTitle === 'Work';
+
+    if (isWork) {
+      // Shift length varies, so Work gets a start AND end time instead of a fixed duration.
+      hourOptions(select);
+      hourOptions(endSelect);
+      endSelect.value = '17:00';
+      endSelect.style.display = '';
+    } else {
+      // Block out any hour whose start would overlap an already-booked task that day,
+      // so the dropdown only offers times that actually fit in what's left of the day.
+      select.innerHTML = '';
+      const existing = (state.tasks[pendingWorkoutDate] || []).filter(t => t.time);
+      const busy = existing.map(t => {
+        const [h, m] = t.time.split(':').map(Number);
+        const start = h * 60 + m;
+        return { start, end: start + (Number(t.dur) || 0) };
+      });
+      const overlaps = (startMin, endMin) => busy.some(b => startMin < b.end && endMin > b.start);
+
+      for (let h = 0; h <= 23; h++) {
+        const startMin = h * 60;
+        const endMin = startMin + pendingScheduleDur;
+        if (overlaps(startMin, endMin)) continue;
+        const opt = document.createElement('option');
+        opt.value = String(h).padStart(2,'0') + ':00';
+        opt.textContent = fmtTime(opt.value);
+        select.appendChild(opt);
+      }
+      endSelect.style.display = 'none';
+    }
     document.getElementById('workoutTimeBackdrop').classList.add('open');
   }
   function closeWorkoutTimeSheet() {
     document.getElementById('workoutTimeBackdrop').classList.remove('open');
     highlightWorkoutPick = false;
     pendingWorkoutDate = null;
+    pendingWorkJob = null;
     renderCalendar();
   }
   function confirmWorkoutTime() {
     const time = document.getElementById('workoutTimeInput').value;
     if (!time || !pendingWorkoutDate) return;
+
+    let dur = pendingScheduleDur;
+    let extra = {};
+    if (pendingScheduleTitle === 'Work') {
+      const endTime = document.getElementById('workoutEndTimeInput').value;
+      const [sh, sm] = time.split(':').map(Number);
+      const [eh, em] = endTime.split(':').map(Number);
+      dur = (eh * 60 + em) - (sh * 60 + sm);
+      const overnight = dur <= 0;
+      if (overnight) dur += 24 * 60; // overnight shift (e.g. 11pm-7am) — wraps into the next day
+      const existing = (state.tasks[pendingWorkoutDate] || []).filter(t => t.time);
+      const startMin = sh * 60 + sm, endMin = eh * 60 + em;
+      const clash = existing.some(t => {
+        const [h, m] = t.time.split(':').map(Number);
+        const bStart = h * 60 + m, bEnd = bStart + (Number(t.dur) || 0);
+        return startMin < bEnd && endMin > bStart;
+      });
+      if (clash) { alert('That overlaps something already scheduled that day.'); return; }
+      const rate = JOB_RATES[pendingWorkJob] || 0;
+      extra = { job: pendingWorkJob, rate, pay: Math.round(rate * dur / 60 * 100) / 100, overnight };
+    }
+
     if (!state.tasks[pendingWorkoutDate]) state.tasks[pendingWorkoutDate] = [];
-    state.tasks[pendingWorkoutDate].push({ id: uid(), title: 'Workout', time, dur: WORKOUT_DURATION_MIN, done: false });
+    state.tasks[pendingWorkoutDate].push({ id: uid(), title: pendingScheduleTitle, time, dur, done: false, ...extra });
     save();
     document.getElementById('workoutTimeBackdrop').classList.remove('open');
     highlightWorkoutPick = false;
     selectedDate = pendingWorkoutDate;
     pendingWorkoutDate = null;
+    pendingWorkJob = null;
     renderCalendar();
     const scheduledWeekday = highlightWorkoutDay;
     switchTab('schedule');
@@ -897,6 +1268,115 @@
     renderCalendar();
   }
 
+  function closeAnySession() {
+    if (ws) exitWorkoutSession();
+    else if (ms) exitMorningSession();
+  }
+
+  // ---- Morning Routine (tap-through, same style as the workout session) ----
+  let ms = null;
+  let msTimerHandle = null;
+
+  const MORNING_STEPS = [
+    { name: 'Potty', sec: 10 * 60 },
+    { name: 'Shower', sec: 20 * 60 },
+    { name: 'Getting Dressed', sec: 15 * 60 },
+    { name: 'Brush Teeth + Floss', sec: 5 * 60 },
+    { name: 'Vitamins & Medicine', sec: 5 * 60 },
+    { name: 'Shave', sec: 10 * 60, days: [0, 3, 5] }, // Sun, Wed, Fri
+    { name: 'Duolingo', sec: 10 * 60, days: [1, 2, 4] }, // Mon, Tue, Thu
+    { name: 'News Recap/Catch Up', sec: 10 * 60, days: [6] }, // Sat
+    { name: 'Coffee', sec: 10 * 60 },
+    { name: 'Doom Scroll', sec: 5 * 60 },
+    { name: 'Texting Delay', sec: 10 * 60 },
+  ];
+
+  function openMorningSession(scheduledTask) {
+    const weekday = scheduledTask ? new Date(selectedDate + 'T00:00').getDay()
+      : (routineDay !== null ? routineDay : new Date().getDay());
+    const steps = MORNING_STEPS.filter(s => !s.days || s.days.includes(weekday));
+    ms = { task: scheduledTask, steps, index: 0, secondsLeft: 0 };
+    document.getElementById('workoutSession').classList.add('open');
+    msRenderStep();
+  }
+
+  function msSetProgress(text) { document.getElementById('wsProgress').textContent = text; }
+
+  function msStartCountdown(seconds, onTick, onDone) {
+    clearInterval(msTimerHandle);
+    ms.secondsLeft = seconds;
+    onTick();
+    msTimerHandle = setInterval(() => {
+      ms.secondsLeft--;
+      if (ms.secondsLeft <= 0) {
+        clearInterval(msTimerHandle);
+        msTimerHandle = null;
+        onTick();
+        onDone();
+      } else {
+        onTick();
+      }
+    }, 1000);
+  }
+
+  function msRenderStep() {
+    const step = ms.steps[ms.index];
+    msSetProgress(`Step ${ms.index + 1} of ${ms.steps.length}`);
+    const body = document.getElementById('wsBody');
+    body.innerHTML = `
+      <div class="ws-kicker">Morning Routine</div>
+      <div class="ws-title">${step.name}</div>
+      <div class="ws-timer" id="wsClock">${wsFmtClock(step.sec)}</div>
+      <button class="ws-btn ws-btn-secondary" onclick="msSkipStep()">Skip</button>
+    `;
+    msStartCountdown(step.sec,
+      () => { const el = document.getElementById('wsClock'); if (el) el.textContent = wsFmtClock(ms.secondsLeft); },
+      () => msAdvanceStep()
+    );
+  }
+
+  function msSkipStep() {
+    clearInterval(msTimerHandle);
+    msAdvanceStep();
+  }
+
+  function msAdvanceStep() {
+    ms.index++;
+    if (ms.index >= ms.steps.length) {
+      msRenderComplete();
+    } else {
+      msRenderStep();
+    }
+  }
+
+  function msRenderComplete() {
+    clearInterval(msTimerHandle);
+    msSetProgress('Done');
+    const body = document.getElementById('wsBody');
+    body.innerHTML = `
+      <div class="ws-complete-icon">&#9728;&#65039;</div>
+      <div class="ws-title">Morning Routine Complete</div>
+      <button class="ws-btn ws-btn-primary" onclick="msFinishSession()">Done</button>
+    `;
+  }
+
+  function msFinishSession() {
+    if (ms && ms.task) {
+      ms.task.done = true;
+      save();
+    }
+    exitMorningSession();
+    renderTasks();
+    renderCalendar();
+  }
+
+  function exitMorningSession() {
+    clearInterval(msTimerHandle);
+    msTimerHandle = null;
+    document.getElementById('workoutSession').classList.remove('open');
+    ms = null;
+  }
+
   // Custom confirm modal — native confirm()/window.confirm can get silently
   // blocked in sandboxed embedded views, so we roll our own.
   function askConfirm(message, onYes) {
@@ -928,6 +1408,7 @@
     document.getElementById('view-schedule').classList.toggle('active', tab === 'schedule');
     document.getElementById('view-calendar').classList.toggle('active', tab === 'calendar');
     document.getElementById('view-notes').classList.toggle('active', tab === 'notes');
+    document.getElementById('view-report').classList.toggle('active', tab === 'report');
     if (tab === 'schedule') {
       activeContext = 'routine';
       closeRoutineDay();
@@ -935,8 +1416,10 @@
     } else if (tab === 'calendar') {
       activeContext = 'calendar';
       closeDayView();
+    } else if (tab === 'report') {
+      renderReport();
     }
-    document.querySelector('.fab').style.display = tab === 'notes' || tab === 'schedule' ? 'none' : '';
+    document.querySelector('.fab').style.display = tab === 'notes' || tab === 'schedule' || tab === 'report' ? 'none' : '';
   }
 
   function shiftMonth(dir) {
@@ -982,19 +1465,31 @@
         if (dateStr === todayStr) cell.classList.add('today');
         if (dateStr === selectedDate) cell.classList.add('selected');
         cell.textContent = day;
-        if ((state.tasks[dateStr] || []).length) {
+        const prevDateStr = addDays(dateStr, -1);
+        const hasSpillover = (state.tasks[prevDateStr] || []).some(t => t.overnight);
+        if ((state.tasks[dateStr] || []).length || hasSpillover) {
           const dot = document.createElement('div');
           dot.className = 'dot';
           cell.appendChild(dot);
         }
 
         let isGlowPick = false;
+        let isGlowTaken = false;
         if (highlightWorkoutPick && cellDate.getDay() === highlightWorkoutDay) {
           const today0 = new Date(); today0.setHours(0,0,0,0);
           const cellDate0 = new Date(cellDate); cellDate0.setHours(0,0,0,0);
           if (cellDate0 >= today0) {
-            isGlowPick = true;
-            cell.classList.add('workout-pick-glow');
+            // Work can be scheduled more than once a day (different jobs, split shifts, etc.) —
+            // only Workout/Morning/Night routines get the one-per-day lock.
+            const alreadyScheduled = pendingScheduleTitle !== 'Work' &&
+              (state.tasks[dateStr] || []).some(t => t.title === pendingScheduleTitle);
+            if (alreadyScheduled) {
+              isGlowTaken = true;
+              cell.classList.add('workout-pick-glow-taken');
+            } else {
+              isGlowPick = true;
+              cell.classList.add('workout-pick-glow');
+            }
           }
         }
 
@@ -1003,6 +1498,8 @@
             if (isGlowPick) {
               pendingWorkoutDate = dateStr;
               openWorkoutTimeSheet();
+            } else if (isGlowTaken) {
+              // already scheduled on this day — block double-booking, do nothing
             } else {
               highlightWorkoutPick = false;
               renderCalendar();
@@ -1093,7 +1590,19 @@
     document.getElementById('selectedDayLabel').textContent =
       new Date(selectedDate + 'T00:00').toLocaleDateString('default', { weekday: 'long', month: 'short', day: 'numeric' });
 
-    const oneOffTasks = state.tasks[selectedDate] || [];
+    // An overnight Work shift scheduled the day before spills into this day's early morning —
+    // show it here too, as the same task (same id, real date key is the previous day).
+    const prevDateStr = addDays(selectedDate, -1);
+    const continuations = (state.tasks[prevDateStr] || [])
+      .filter(t => t.overnight)
+      .map(t => {
+        const spillMin = Math.max(0, (timeToMinutes(t.time) + t.dur) - 24 * 60);
+        // Keep t.time/t.dur as the ORIGINAL full shift (so the card shows the real total hours/pay);
+        // _spillMin is just how much of it falls on this calendar day, for layout.
+        return { ...t, _dateKey: prevDateStr, _continuation: true, _spillMin: spillMin };
+      });
+
+    const oneOffTasks = [...continuations, ...(state.tasks[selectedDate] || [])];
     const allTasks = [...oneOffTasks, ...getRoutineTasks(selectedDate).filter(task => task.time)];
     const done = allTasks.filter(t => t.done).length;
     document.getElementById('progressLabel').textContent =
@@ -1125,15 +1634,27 @@
 
     let cursor = 0;
     scheduled
-      .map(task => ({ task, start: Math.min(toMinutes(task.time), DAY_END) }))
+      .map(task => ({ task, start: task._continuation ? 0 : Math.min(toMinutes(task.time), DAY_END) }))
       .sort((a, b) => a.start - b.start)
       .forEach(({ task, start }) => {
         if (start > cursor) addGap(cursor, start);
 
-        const end = Math.min(DAY_END, start + Math.max(0, Number(task.dur) || 0));
+        const durForLayout = task._continuation ? task._spillMin : (Number(task.dur) || 0);
+        const rawEnd = start + Math.max(0, durForLayout);
+        const end = Math.min(DAY_END, rawEnd);
         const block = document.createElement('div');
         block.className = 'hour-block';
-        block.innerHTML = `<div class="hour-block-label">${formatRange(start, end)}</div><div class="hour-block-content"></div>`;
+        let label;
+        if (task._continuation) {
+          // Spilled over from an overnight shift that started the day before.
+          label = `12:00 AM - ${fmtTime(minutesToTime(rawEnd % (24 * 60)))} (continued from ${fmtTime(task.time)} the night before)`;
+        } else if (task.overnight) {
+          // An overnight shift (e.g. Work 11pm-7am) runs past midnight — show its real end time, not clamped to 11pm.
+          label = `${fmtTime(minutesToTime(start))} - ${fmtTime(minutesToTime(rawEnd % (24 * 60)))} (next day)`;
+        } else {
+          label = formatRange(start, end);
+        }
+        block.innerHTML = `<div class="hour-block-label">${label}</div><div class="hour-block-content"></div>`;
         block.querySelector('.hour-block-content').appendChild(taskCard(task));
         list.appendChild(block);
         cursor = Math.max(cursor, end);
@@ -1217,12 +1738,27 @@
   function taskCard(t, options = {}) {
     const isRoutine = options.routineTemplate || t.isRoutine;
     const isScheduledWorkout = t.title === 'Workout' && !isRoutine;
+    const isScheduledMorning = t.title === 'Morning Routine' && !isRoutine;
+    const isScheduledWork = t.title === 'Work' && !isRoutine && t.job;
     const item = document.createElement('div');
     item.className = 'task-item';
     item.innerHTML = isScheduledWorkout ? `
       <div class="task-check ${t.done ? 'done' : ''}"></div>
       <div class="task-body">
         <div class="task-title ${t.done ? 'done' : ''}">START WORKOUT?</div>
+      </div>
+    ` : isScheduledMorning ? `
+      <div class="task-check ${t.done ? 'done' : ''}"></div>
+      <div class="task-body">
+        <div class="task-title ${t.done ? 'done' : ''}">START MORNING ROUTINE?</div>
+      </div>
+    ` : isScheduledWork ? `
+      <div class="task-check ${t.done ? 'done' : ''}"></div>
+      <div class="task-body">
+        <div class="task-title ${t.done ? 'done' : ''}">Work @ ${t.job}${t._continuation ? ' (in progress)' : ''}${t.clockedOut ? ' ✓' : ''}</div>
+        <div class="task-meta">${t.clockedOut
+          ? `Actual: ${fmtTime(t.clockIn)} &ndash; ${fmtTime(t.clockOut)} &middot; ${(t.actualDur/60).toFixed(1)}h &middot; $${t.actualPay.toFixed(2)}${t.shiftRating != null ? ' &middot; ' + SHIFT_SMILEYS[t.shiftRating] : ''}`
+          : `${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime((timeToMinutes(t.time) + t.dur)))} &middot; ${(t.dur/60).toFixed(1)}h &middot; $${t.pay.toFixed(2)}`}</div>
       </div>
     ` : `
       <div class="task-check ${t.done ? 'done' : ''}${isRoutine && options.routineTemplate ? ' hidden' : ''}"></div>
@@ -1240,9 +1776,25 @@
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); startWorkoutScheduling(); });
     }
+    if (isRoutine && options.routineTemplate && t.title === 'Morning Routine') {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); startMorningScheduling(); });
+    }
+    if (isRoutine && options.routineTemplate && t.title === 'Work') {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); startWorkScheduling(); });
+    }
     if (isScheduledWorkout) {
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); openWorkoutSession(t); });
+    }
+    if (isScheduledMorning) {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); openMorningSession(t); });
+    }
+    if (isScheduledWork) {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); openClockFlow(t); });
     }
     return makeSwipeable(item, () => deleteTask(t), isRoutine ? 'this routine' : 'this task');
   }
@@ -1252,6 +1804,19 @@
     const suffix = h >= 12 ? 'PM' : 'AM';
     const hr = h % 12 === 0 ? 12 : h % 12;
     return `${hr}:${String(m).padStart(2,'0')} ${suffix}`;
+  }
+  function addDays(dateStr, delta) {
+    const d = new Date(dateStr + 'T00:00');
+    d.setDate(d.getDate() + delta);
+    return fmtDate(d);
+  }
+  function timeToMinutes(t) {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  }
+  function minutesToTime(mins) {
+    const h = Math.floor(mins / 60) % 24, m = mins % 60;
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
   }
 
   function toggleDone(task) {
@@ -1268,7 +1833,8 @@
       renderTasks();
       return;
     }
-    const storedTask = (state.tasks[selectedDate] || []).find(x => x.id === task.id);
+    const dateKey = task._dateKey || selectedDate;
+    const storedTask = (state.tasks[dateKey] || []).find(x => x.id === task.id);
     if (storedTask) { storedTask.done = !storedTask.done; save(); renderTasks(); renderCalendar(); }
   }
   function deleteTask(task) {
@@ -1289,7 +1855,8 @@
       renderSchedule();
       return;
     }
-    state.tasks[selectedDate] = (state.tasks[selectedDate] || []).filter(x => x.id !== task.id);
+    const dateKey = task._dateKey || selectedDate;
+    state.tasks[dateKey] = (state.tasks[dateKey] || []).filter(x => x.id !== task.id);
     save(); renderTasks(); renderCalendar();
   }
 
