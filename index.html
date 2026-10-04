@@ -111,6 +111,14 @@
     display: flex; align-items: center; gap: 10px;
     padding: 10px 12px;
   }
+  .info-icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; font-style: italic; color: rgba(255,255,255,0.85);
+    cursor: pointer; z-index: 2;
+  }
+  .task-item-morning .info-icon { border-color: rgba(0,0,0,0.5); color: rgba(0,0,0,0.7); }
   .task-check { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #555; flex-shrink: 0; }
   .task-check.hidden { visibility: hidden; }
   .task-check.done { background: #4caf50; border-color: #4caf50; }
@@ -497,6 +505,16 @@
   </div>
 </div>
 
+<div class="sheet-backdrop" id="infoBackdrop">
+  <div class="sheet">
+    <h3 id="infoSheetTitle">Info</h3>
+    <div id="infoSheetBody" style="font-size:13px;color:#ccc;line-height:1.9;"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-primary" onclick="closeInfoSheet()">close</button>
+    </div>
+  </div>
+</div>
+
 <div class="workout-session" id="workoutSession">
   <div class="ws-top">
     <span class="ws-close" onclick="closeAnySession()">&times;</span>
@@ -878,12 +896,11 @@
       });
       const overlaps = (startMin, endMin) => busy.some(b => startMin < b.end && endMin > b.start);
 
-      for (let h = 0; h <= 23; h++) {
-        const startMin = h * 60;
+      for (let startMin = 0; startMin < 24 * 60; startMin += 30) {
         const endMin = startMin + pendingScheduleDur;
         if (overlaps(startMin, endMin)) continue;
         const opt = document.createElement('option');
-        opt.value = String(h).padStart(2,'0') + ':00';
+        opt.value = minutesToTime(startMin);
         opt.textContent = fmtTime(opt.value);
         select.appendChild(opt);
       }
@@ -1287,7 +1304,7 @@
   let msTimerHandle = null;
 
   const MORNING_STEPS = [
-    { name: 'Potty', sec: 10 * 60 },
+    { name: 'Chapo Potty', sec: 10 * 60 },
     { name: 'Shower', sec: 20 * 60 },
     { name: 'Getting Dressed', sec: 15 * 60 },
     { name: 'Brush Teeth + Floss', sec: 5 * 60 },
@@ -1719,6 +1736,7 @@
     // and setPointerCapture keeps the drag tracking even if the cursor leaves the element.
     contentEl.addEventListener('pointerdown', e => {
       if (e.button !== undefined && e.button !== 0) return; // left click / primary touch only
+      if (e.target.closest('.info-icon')) return; // let the info button get its own untouched click, no swipe capture
       startX = e.clientX; startY = e.clientY; dx = 0; dragging = true; locked = null;
       activePointer = e.pointerId;
       contentEl.style.transition = 'none';
@@ -1817,7 +1835,79 @@
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); openClockFlow(t); });
     }
+    if (INFO_TITLES.includes(t.title)) {
+      const info = document.createElement('div');
+      info.className = 'info-icon';
+      info.textContent = 'i';
+      info.addEventListener('click', (e) => { e.stopPropagation(); openInfoFor(t, isRoutine); });
+      item.appendChild(info);
+    }
     return makeSwipeable(item, () => deleteTask(t), isRoutine ? 'this routine' : 'this task');
+  }
+
+  // ---- Info popups: tap the "i" on Workout/Morning/Work/Night cards to see the full plan ----
+  const INFO_TITLES = ['Workout', 'Morning Routine', 'Work', 'Night Routine'];
+  const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  function fmtDur(min) {
+    const h = Math.floor(min / 60), m = Math.round(min % 60);
+    if (h && m) return `${h} hr ${m} min`;
+    if (h) return `${h} hr`;
+    return `${m} min`;
+  }
+
+  function weekdayFor(t, isRoutine) {
+    if (isRoutine) return routineDay !== null ? routineDay : new Date().getDay();
+    const dateKey = t._dateKey || selectedDate;
+    return new Date(dateKey + 'T00:00').getDay();
+  }
+
+  function openInfoFor(t, isRoutine) {
+    const weekday = weekdayFor(t, isRoutine);
+    const dayName = WEEKDAY_NAMES[weekday];
+    if (t.title === 'Workout') {
+      const plan = WORKOUT_PLANS[weekday];
+      if (!plan) { openInfoSheet('Workout', `<div class="empty-state">No workout plan set for ${dayName}.</div>`); return; }
+      let body = `<div style="font-weight:700;color:#fff;margin-bottom:4px;">Warm-up</div>${plan.stretch.map(s => `• ${s}`).join('<br>')}`;
+      if (plan.exercises) {
+        body += `<div style="font-weight:700;color:#fff;margin:12px 0 4px 0;">Exercises</div>` +
+          plan.exercises.map(ex => `• ${ex.name} — ${ex.sets}x${ex.reps} (${ex.muscle})`).join('<br>');
+      } else if (plan.cardio) {
+        body += `<div style="font-weight:700;color:#fff;margin:12px 0 4px 0;">Cardio</div>• ${plan.cardio.name} — ${plan.cardio.detail}`;
+      }
+      openInfoSheet(`Workout — ${dayName} (${fmtDur(WORKOUT_DURATION_MIN)})`, body);
+    } else if (t.title === 'Morning Routine') {
+      const steps = MORNING_STEPS.filter(s => !s.days || s.days.includes(weekday));
+      const totalMin = steps.reduce((sum, s) => sum + s.sec / 60, 0);
+      const body = steps.map(s => `• ${s.name} — ${Math.round(s.sec / 60)}m`).join('<br>');
+      openInfoSheet(`Morning Routine — ${dayName} (${fmtDur(totalMin)})`, body);
+    } else if (t.title === 'Work') {
+      if (t.job) {
+        const rate = t.rate || JOB_RATES[t.job] || 0;
+        const dur = t.clockedOut ? t.actualDur : t.dur;
+        let body = `• Job: ${t.job}<br>• Rate: $${rate}/hr`;
+        if (t.clockedOut) {
+          body += `<br>• Clocked: ${fmtTime(t.clockIn)} &ndash; ${fmtTime(t.clockOut)}<br>• Actual: ${(t.actualDur / 60).toFixed(1)}h &middot; $${t.actualPay.toFixed(2)}`;
+        } else if (t.time) {
+          body += `<br>• Scheduled: ${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime(timeToMinutes(t.time) + t.dur))}<br>• Est. pay: $${t.pay.toFixed(2)}`;
+        }
+        openInfoSheet(dur ? `Work (${fmtDur(dur)})` : 'Work', body);
+      } else {
+        const body = Object.entries(JOB_RATES).map(([job, rate]) => `• ${job} — $${rate}/hr`).join('<br>');
+        openInfoSheet('Work — job rates', body);
+      }
+    } else if (t.title === 'Night Routine') {
+      openInfoSheet('Night Routine', `<div class="empty-state">Not set up yet — coming soon.</div>`);
+    }
+  }
+
+  function openInfoSheet(title, bodyHtml) {
+    document.getElementById('infoSheetTitle').textContent = title;
+    document.getElementById('infoSheetBody').innerHTML = bodyHtml;
+    document.getElementById('infoBackdrop').classList.add('open');
+  }
+  function closeInfoSheet() {
+    document.getElementById('infoBackdrop').classList.remove('open');
   }
 
   function fmtTime(t) {
