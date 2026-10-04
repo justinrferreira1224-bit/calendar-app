@@ -40,7 +40,8 @@
     padding: 14px 0 6px 4px; border-bottom: 1px solid #262626; margin-bottom: 2px;
   }
   .month-label-year { color: #ff6b5b; }
-  .dot { position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #4caf50; }
+  .dot-row { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
+  .dot { width: 4px; height: 4px; border-radius: 50%; background: #4caf50; }
 
   .day-summary { margin-top: 16px; font-size: 12px; color: #888; }
   .day-summary b { color: #fff; }
@@ -247,7 +248,7 @@
     color: #777;
     cursor: default;
   }
-  .dot { box-shadow: 0 0 4px rgba(95,217,122,0.8); }
+  .dot { box-shadow: 0 0 4px currentColor; }
 
   .swipe-content {
     background: linear-gradient(160deg, #232323, #131313 65%);
@@ -867,6 +868,14 @@
         const start = h * 60 + m;
         return { start, end: start + (Number(t.dur) || 0) };
       });
+      // An overnight shift from the night before spills into this day's early morning —
+      // block that time too, even though it's not actually "on" this date.
+      const prevDateStr = addDays(pendingWorkoutDate, -1);
+      (state.tasks[prevDateStr] || []).filter(t => t.overnight).forEach(t => {
+        const [h, m] = t.time.split(':').map(Number);
+        const spillEnd = (h * 60 + m + (Number(t.dur) || 0)) - 24 * 60;
+        if (spillEnd > 0) busy.push({ start: 0, end: spillEnd });
+      });
       const overlaps = (startMin, endMin) => busy.some(b => startMin < b.end && endMin > b.start);
 
       for (let h = 0; h <= 23; h++) {
@@ -1466,11 +1475,23 @@
         if (dateStr === selectedDate) cell.classList.add('selected');
         cell.textContent = day;
         const prevDateStr = addDays(dateStr, -1);
-        const hasSpillover = (state.tasks[prevDateStr] || []).some(t => t.overnight);
-        if ((state.tasks[dateStr] || []).length || hasSpillover) {
-          const dot = document.createElement('div');
-          dot.className = 'dot';
-          cell.appendChild(dot);
+        const hasSpilloverWork = (state.tasks[prevDateStr] || []).some(t => t.overnight && t.title === 'Work');
+        const dayTasks = state.tasks[dateStr] || [];
+        const dotColors = [];
+        if (dayTasks.some(t => t.title === 'Work') || hasSpilloverWork) dotColors.push('#4caf50');
+        if (dayTasks.some(t => t.title === 'Workout')) dotColors.push('#1656d6');
+        if (dayTasks.some(t => t.title === 'Study')) dotColors.push('#c62828');
+        if (dotColors.length) {
+          const dotRow = document.createElement('div');
+          dotRow.className = 'dot-row';
+          dotColors.forEach(color => {
+            const dot = document.createElement('div');
+            dot.className = 'dot';
+            dot.style.background = color;
+            dot.style.color = color;
+            dotRow.appendChild(dot);
+          });
+          cell.appendChild(dotRow);
         }
 
         let isGlowPick = false;
