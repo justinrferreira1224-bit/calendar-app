@@ -587,6 +587,7 @@
   let pendingWorkoutDate = null;
   const WORKOUT_DURATION_MIN = 60; // 15m stretch + 45m lift
   const MORNING_DURATION_MIN = 90; // longest version (shave day) of the morning routine
+  const NIGHT_DURATION_MIN = 84;   // all 13 steps (the 10-min activity is always one of chess/duolingo/bible)
 
   // Which routine is currently being scheduled via the gold-glow calendar pick.
   let pendingScheduleTitle = 'Workout';
@@ -604,6 +605,15 @@
   function startMorningScheduling() {
     pendingScheduleTitle = 'Morning Routine';
     pendingScheduleDur = MORNING_DURATION_MIN;
+    highlightWorkoutPick = true;
+    highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
+    switchTab('calendar');
+    renderCalendar();
+  }
+
+  function startNightScheduling() {
+    pendingScheduleTitle = 'Night Routine';
+    pendingScheduleDur = NIGHT_DURATION_MIN;
     highlightWorkoutPick = true;
     highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
     switchTab('calendar');
@@ -889,7 +899,7 @@
       // An overnight shift from the night before spills into this day's early morning —
       // block that time too, even though it's not actually "on" this date.
       const prevDateStr = addDays(pendingWorkoutDate, -1);
-      (state.tasks[prevDateStr] || []).filter(t => t.overnight).forEach(t => {
+      (state.tasks[prevDateStr] || []).filter(t => t.time && (t.overnight || timeToMinutes(t.time) + (Number(t.dur) || 0) > 24 * 60)).forEach(t => {
         const [h, m] = t.time.split(':').map(Number);
         const spillEnd = (h * 60 + m + (Number(t.dur) || 0)) - 24 * 60;
         if (spillEnd > 0) busy.push({ start: 0, end: spillEnd });
@@ -1317,11 +1327,38 @@
     { name: 'Texting Delay', sec: 10 * 60 },
   ];
 
+  const NIGHT_STEPS = [
+    { name: 'Brush Teeth + Floss', sec: 5 * 60 },
+    { name: 'Teeth Whiteners', sec: 10 * 60 },
+    { name: 'Cleanser', sec: 2 * 60 },
+    { name: 'Toner', sec: 1 * 60 },
+    { name: 'Serum', sec: 2 * 60 },
+    { name: 'Moisturizer', sec: 2 * 60 },
+    { name: 'Retinol', sec: 2 * 60 },
+    { name: 'Face Mask', sec: 15 * 60 },
+    { name: 'Creatine', sec: 10 * 60 },
+    { name: 'Chapo Potty', sec: 10 * 60 },
+    { name: 'Chess', sec: 10 * 60, days: [0, 3, 5] },        // Sun, Wed, Fri
+    { name: 'Duolingo', sec: 10 * 60, days: [1, 2, 4] },     // Mon, Tue, Thu
+    { name: 'Bible Read', sec: 10 * 60, days: [6] },         // Sat
+    { name: 'Doom Scroll', sec: 5 * 60 },
+    { name: 'Texting Delay', sec: 10 * 60 },
+  ];
+
   function openMorningSession(scheduledTask) {
     const weekday = scheduledTask ? new Date(selectedDate + 'T00:00').getDay()
       : (routineDay !== null ? routineDay : new Date().getDay());
     const steps = MORNING_STEPS.filter(s => !s.days || s.days.includes(weekday));
-    ms = { task: scheduledTask, steps, index: 0, secondsLeft: 0 };
+    ms = { task: scheduledTask, steps, index: 0, secondsLeft: 0, name: 'Morning Routine', icon: '&#9728;&#65039;' };
+    document.getElementById('workoutSession').classList.add('open');
+    msRenderStep();
+  }
+
+  function openNightSession(scheduledTask) {
+    const weekday = scheduledTask ? new Date(selectedDate + 'T00:00').getDay()
+      : (routineDay !== null ? routineDay : new Date().getDay());
+    const steps = NIGHT_STEPS.filter(s => !s.days || s.days.includes(weekday));
+    ms = { task: scheduledTask, steps, index: 0, secondsLeft: 0, name: 'Night Routine', icon: '&#127769;' };
     document.getElementById('workoutSession').classList.add('open');
     msRenderStep();
   }
@@ -1350,7 +1387,7 @@
     msSetProgress(`Step ${ms.index + 1} of ${ms.steps.length}`);
     const body = document.getElementById('wsBody');
     body.innerHTML = `
-      <div class="ws-kicker">Morning Routine</div>
+      <div class="ws-kicker">${ms.name}</div>
       <div class="ws-title">${step.name}</div>
       <div class="ws-timer" id="wsClock">${wsFmtClock(step.sec)}</div>
       <button class="ws-btn ws-btn-secondary" onclick="msSkipStep()">Skip</button>
@@ -1380,8 +1417,8 @@
     msSetProgress('Done');
     const body = document.getElementById('wsBody');
     body.innerHTML = `
-      <div class="ws-complete-icon">&#9728;&#65039;</div>
-      <div class="ws-title">Morning Routine Complete</div>
+      <div class="ws-complete-icon">${ms.icon}</div>
+      <div class="ws-title">${ms.name} Complete</div>
       <button class="ws-btn ws-btn-primary" onclick="msFinishSession()">Done</button>
     `;
   }
@@ -1632,7 +1669,7 @@
     // show it here too, as the same task (same id, real date key is the previous day).
     const prevDateStr = addDays(selectedDate, -1);
     const continuations = (state.tasks[prevDateStr] || [])
-      .filter(t => t.overnight)
+      .filter(t => t.time && (t.overnight || timeToMinutes(t.time) + (Number(t.dur) || 0) > 24 * 60))
       .map(t => {
         const spillMin = Math.max(0, (timeToMinutes(t.time) + t.dur) - 24 * 60);
         // Keep t.time/t.dur as the ORIGINAL full shift (so the card shows the real total hours/pay);
@@ -1652,7 +1689,7 @@
     const scheduled = allTasks.filter(t => t.time);
     const unscheduled = allTasks.filter(t => !t.time);
 
-    const DAY_END = 23 * 60;
+    const DAY_END = 24 * 60 - 1; // 11:59 PM
     const toMinutes = time => {
       const [hours, minutes] = time.split(':').map(Number);
       return hours * 60 + minutes;
@@ -1686,8 +1723,8 @@
         if (task._continuation) {
           // Spilled over from an overnight shift that started the day before.
           label = `12:00 AM - ${fmtTime(minutesToTime(rawEnd % (24 * 60)))} (continued from ${fmtTime(task.time)} the night before)`;
-        } else if (task.overnight) {
-          // An overnight shift (e.g. Work 11pm-7am) runs past midnight — show its real end time, not clamped to 11pm.
+        } else if (task.overnight || rawEnd > 24 * 60) {
+          // Anything that runs past midnight (an overnight Work shift, a late Night Routine) — show its real end time, not clamped to 11:59 PM.
           label = `${fmtTime(minutesToTime(start))} - ${fmtTime(minutesToTime(rawEnd % (24 * 60)))} (next day)`;
         } else {
           label = formatRange(start, end);
@@ -1776,8 +1813,10 @@
 
   function taskCard(t, options = {}) {
     const isRoutine = options.routineTemplate || t.isRoutine;
-    const isScheduledWorkout = t.title === 'Workout' && !isRoutine;
-    const isScheduledMorning = t.title === 'Morning Routine' && !isRoutine;
+    const passive = !!t._continuation && t.title !== 'Work'; // the carried-over part of a routine/workout that crosses midnight
+    const isScheduledWorkout = t.title === 'Workout' && !isRoutine && !passive;
+    const isScheduledMorning = t.title === 'Morning Routine' && !isRoutine && !passive;
+    const isScheduledNight = t.title === 'Night Routine' && !isRoutine && !passive;
     const isScheduledWork = t.title === 'Work' && !isRoutine && t.job;
     const item = document.createElement('div');
     item.className = 'task-item';
@@ -1791,6 +1830,11 @@
       <div class="task-body">
         <div class="task-title ${t.done ? 'done' : ''}">START MORNING ROUTINE?</div>
       </div>
+    ` : isScheduledNight ? `
+      <div class="task-check ${t.done ? 'done' : ''}"></div>
+      <div class="task-body">
+        <div class="task-title ${t.done ? 'done' : ''}">START NIGHT ROUTINE?</div>
+      </div>
     ` : isScheduledWork ? `
       <div class="task-check ${t.done ? 'done' : ''}"></div>
       <div class="task-body">
@@ -1800,9 +1844,9 @@
           : `${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime((timeToMinutes(t.time) + t.dur)))} &middot; ${(t.dur/60).toFixed(1)}h &middot; $${t.pay.toFixed(2)}`}</div>
       </div>
     ` : `
-      <div class="task-check ${t.done ? 'done' : ''}${isRoutine && options.routineTemplate ? ' hidden' : ''}"></div>
+      <div class="task-check ${t.done ? 'done' : ''}${(isRoutine && options.routineTemplate) || passive ? ' hidden' : ''}"></div>
       <div class="task-body">
-        <div class="task-title ${t.done ? 'done' : ''}">${t.title}</div>
+        <div class="task-title ${t.done ? 'done' : ''}">${t.title}${passive ? ' (continued)' : ''}</div>
         <div class="task-meta">${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}</div>
       </div>
     `;
@@ -1819,6 +1863,10 @@
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); startMorningScheduling(); });
     }
+    if (isRoutine && options.routineTemplate && t.title === 'Night Routine') {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); startNightScheduling(); });
+    }
     if (isRoutine && options.routineTemplate && t.title === 'Work') {
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); startWorkScheduling(); });
@@ -1831,11 +1879,15 @@
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); openMorningSession(t); });
     }
+    if (isScheduledNight) {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); openNightSession(t); });
+    }
     if (isScheduledWork) {
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); openClockFlow(t); });
     }
-    if (INFO_TITLES.includes(t.title)) {
+    if (isRoutine && options.routineTemplate && INFO_TITLES.includes(t.title)) {
       const info = document.createElement('div');
       info.className = 'info-icon';
       info.textContent = 'i';
@@ -1897,7 +1949,10 @@
         openInfoSheet('Work — job rates', body);
       }
     } else if (t.title === 'Night Routine') {
-      openInfoSheet('Night Routine', `<div class="empty-state">Not set up yet — coming soon.</div>`);
+      const steps = NIGHT_STEPS.filter(s => !s.days || s.days.includes(weekday));
+      const totalMin = steps.reduce((sum, s) => sum + s.sec / 60, 0);
+      const body = steps.map(s => `• ${s.name} — ${Math.round(s.sec / 60)}m`).join('<br>');
+      openInfoSheet(`Night Routine — ${dayName} (${fmtDur(totalMin)})`, body);
     }
   }
 
