@@ -87,6 +87,16 @@
   .task-item-morning .task-check { display: none; }
   .task-item-morning .task-meta { text-align: center; color: #333; }
 
+  .swipe-content.task-item-monthly {
+    background: #000;
+    border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(255,255,255,0.08);
+  }
+  .task-item-monthly .task-title { font-size: 15px; font-weight: 700; color: #fff; text-align: center; }
+  .task-item-monthly.task-item { padding: 11px 14px; justify-content: center; }
+  .task-item-monthly .task-check { display: none; }
+  .task-item-monthly .task-meta { text-align: center; }
+
   .swipe-content.task-item-night {
     background: #7b2fd4;
     border: 1.5px solid #fff;
@@ -496,7 +506,7 @@
 
 <div class="sheet-backdrop" id="jobPickBackdrop">
   <div class="sheet">
-    <h3>Which job?</h3>
+    <h3 id="jobPickTitle">Which job?</h3>
     <div class="chip-row" id="jobChipRow"></div>
     <div class="sheet-actions">
       <button class="btn btn-secondary" onclick="closeJobPickSheet()">cancel</button>
@@ -574,6 +584,14 @@
       state.routines[day] = state.routines[day].filter(t => t.title !== 'Work');
     }
   }
+  // Payday lives in the Monthly grid only; clear any old weekly Payday item.
+  for (let day = 0; day < 7; day++) state.routines[day] = state.routines[day].filter(t => t.title !== 'Payday');
+  // "Monthly Routines" box: Monday(1) and Wednesday(3) only.
+  for (let day = 0; day < 7; day++) {
+    const has = state.routines[day].some(t => t.title === 'Monthly Routines');
+    if ((day === 1 || day === 3) && !has) state.routines[day].push({ id: uid(), title: 'Monthly Routines', time: '', dur: 0 });
+    else if (day !== 1 && day !== 3 && has) state.routines[day] = state.routines[day].filter(t => t.title !== 'Monthly Routines');
+  }
   // Fixed display order for the highlighted routine boxes; anything else keeps its relative order after these.
   const ROUTINE_ORDER = ['Workout', 'Morning Routine', 'Work', 'Night Routine'];
   for (let day = 0; day < 7; day++) {
@@ -631,10 +649,36 @@
   }
 
   // ---- Work: pick a job, then a date, then start/end time (shift length varies) ----
-  const JOB_RATES = { '1-800-Got-Junk': 18, 'CarMax': 20, 'Valet': 19 };
+  const JOB_RATES = { 'CarMax': 20, 'Valet': 19 };
   let pendingWorkJob = null;
+  let pendingMonthlyObj = null;
+
+  // Monthly Routines (Mon/Wed boxes): pick one of the monthly objectives, then a date, then start/end time.
+  function startMonthlyScheduling() {
+    document.getElementById('jobPickTitle').textContent = 'Which routine?';
+    const row = document.getElementById('jobChipRow');
+    row.innerHTML = '';
+    (state.monthlyObjs || []).forEach(o => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = o.name;
+      chip.onclick = () => {
+        pendingMonthlyObj = o.name;
+        closeJobPickSheet();
+        pendingScheduleTitle = o.name;
+        pendingScheduleDur = 0;
+        highlightWorkoutPick = true;
+        highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
+        switchTab('calendar');
+        renderCalendar();
+      };
+      row.appendChild(chip);
+    });
+    document.getElementById('jobPickBackdrop').classList.add('open');
+  }
 
   function startWorkScheduling() {
+    document.getElementById('jobPickTitle').textContent = 'Which job?';
     const row = document.getElementById('jobChipRow');
     row.innerHTML = '';
     Object.keys(JOB_RATES).forEach(job => {
@@ -771,6 +815,14 @@
     renderReport();
   }
 
+  function setIncome(field, val) {
+    state.income = state.income || {};
+    state.income[reportWeekStart] = state.income[reportWeekStart] || {};
+    state.income[reportWeekStart][field] = val === '' ? '' : Number(val);
+    save();
+    renderReport();
+  }
+
   function renderReport() {
     const label = document.getElementById('reportWeekLabel');
     const weekDates = [];
@@ -854,6 +906,27 @@
       }
     }
 
+    // ---- Income: pasted weekly paycheck (actual) + projected. Money in = green.
+    state.income = state.income || {};
+    const inc = state.income[reportWeekStart] || {};
+    const money = n => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const hasPaid = inc.paid !== undefined && inc.paid !== '';
+    const hasProj = inc.projected !== undefined && inc.projected !== '';
+    const inpS = 'background:rgba(128,128,128,0.15);border:none;outline:none;color:#4caf50;font-weight:700;font-size:16px;font-family:inherit;padding:8px 10px;border-radius:8px;width:110px;text-align:right;';
+    html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Income</h2></div>
+      <div class="hour-block" style="border:1.5px solid #fff;padding:10px 12px;box-sizing:border-box;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-weight:700;font-size:13px;">Made (paste weekly)</div>
+          <input type="number" inputmode="decimal" placeholder="+$0" value="${hasPaid ? inc.paid : ''}" onchange="setIncome('paid', this.value)" style="${inpS}">
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-weight:700;font-size:13px;">Projected</div>
+          <input type="number" inputmode="decimal" placeholder="+$0" value="${hasProj ? inc.projected : ''}" onchange="setIncome('projected', this.value)" style="${inpS}opacity:.8;">
+        </div>
+        ${hasPaid && hasProj ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding-top:6px;border-top:1px solid rgba(128,128,128,0.3);"><span>${Number(inc.paid) >= Number(inc.projected) ? 'Ahead of projection' : 'Behind projection'}</span><span style="font-weight:700;color:${Number(inc.paid) >= Number(inc.projected) ? '#4caf50' : '#ff5252'};">${Number(inc.paid) >= Number(inc.projected) ? '+' : '-'}${money(Math.abs(Number(inc.paid) - Number(inc.projected)))}</span></div>` : ''}
+        ${hasPaid ? `<div style="text-align:right;font-weight:800;font-size:18px;color:#4caf50;margin-top:8px;">+${money(inc.paid)}</div>` : ''}
+      </div>`;
+
     html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Workout Tracker</h2></div>`;
     if (!workoutScheduled) {
       html += `<div class="empty-state" style="margin:4px 0 0 0;">No workouts scheduled this week.</div>`;
@@ -888,7 +961,7 @@
     document.getElementById('workoutTimeSheetTitle').textContent = 'Schedule ' + pendingScheduleTitle;
     const select = document.getElementById('workoutTimeInput');
     const endSelect = document.getElementById('workoutEndTimeInput');
-    const isWork = pendingScheduleTitle === 'Work';
+    const isWork = pendingScheduleTitle === 'Work' || !!pendingMonthlyObj;
 
     if (isWork) {
       // Shift length varies, so Work gets a start AND end time instead of a fixed duration.
@@ -933,6 +1006,7 @@
     highlightWorkoutPick = false;
     pendingWorkoutDate = null;
     pendingWorkJob = null;
+    pendingMonthlyObj = null;
     renderCalendar();
   }
   function confirmWorkoutTime() {
@@ -941,7 +1015,7 @@
 
     let dur = pendingScheduleDur;
     let extra = {};
-    if (pendingScheduleTitle === 'Work') {
+    if (pendingScheduleTitle === 'Work' || pendingMonthlyObj) {
       const endTime = document.getElementById('workoutEndTimeInput').value;
       const [sh, sm] = time.split(':').map(Number);
       const [eh, em] = endTime.split(':').map(Number);
@@ -957,7 +1031,7 @@
       });
       if (clash) { alert('That overlaps something already scheduled that day.'); return; }
       const rate = JOB_RATES[pendingWorkJob] || 0;
-      extra = { job: pendingWorkJob, rate, pay: Math.round(rate * dur / 60 * 100) / 100, overnight };
+      extra = pendingMonthlyObj ? { monthlyObj: true } : { job: pendingWorkJob, rate, pay: Math.round(rate * dur / 60 * 100) / 100, overnight };
     }
 
     if (!state.tasks[pendingWorkoutDate]) state.tasks[pendingWorkoutDate] = [];
@@ -968,6 +1042,7 @@
     selectedDate = pendingWorkoutDate;
     pendingWorkoutDate = null;
     pendingWorkJob = null;
+    pendingMonthlyObj = null;
     renderCalendar();
     const scheduledWeekday = highlightWorkoutDay;
     switchTab('schedule');
@@ -1467,7 +1542,7 @@
     cancelBtn.onclick = () => cleanup();
   }
 
-  function save() { localStorage.setItem('cal_state', JSON.stringify(state)); }
+  function save() { localStorage.setItem('cal_state', JSON.stringify(state, (k, v) => k === '_edit' ? undefined : v)); }
   function fmtDate(d) {
     // Local date components, not UTC — toISOString() shifts to the next
     // calendar day once local time is late enough to cross into the next UTC day.
@@ -1504,6 +1579,7 @@
 
   function renderCalendar() {
     const monthLabel = document.getElementById('monthLabel');
+    if (typeof renderMonthlyGrid === 'function' && document.getElementById('monthlyList')) { renderMonthlyGrid(); renderMonthlyObjs(); }
     monthLabel.innerHTML = `<span class="title-month">${viewDate.toLocaleString('default', { month: 'long' })}</span> <span class="title-year">${viewDate.getFullYear()}</span>`;
 
     const grid = document.getElementById('daysGrid');
@@ -1648,7 +1724,7 @@
     renderRoutineTasks();
   }
 
-  const MONTHLY_BILLS = [
+  const DEFAULT_BILLS = [
     { day: 1, name: 'Rent', amt: 2000 }, { day: 1, name: 'Utilities', amt: 250 },
     { day: 1, name: 'Claude', amt: 20 }, { day: 1, name: 'Internet', amt: 60 },
     { day: 1, name: 'Spotify', amt: 13 },
@@ -1656,9 +1732,16 @@
     { day: 15, name: 'Credit Cards', amt: 100 }, { day: 15, name: 'Savings', amt: 150 },
     { day: 20, name: 'Car Pay', amt: 420 }, { day: 20, name: 'Car Insurance', amt: 200 }
   ];
-  const fmtMoney = n => '$' + n.toLocaleString();
+  if (!Array.isArray(state.bills)) { state.bills = DEFAULT_BILLS.map(b => ({ ...b })); try { save(); } catch (e) {} }
+  if (!state.bills.some(b => b.weekday === 3 && b.name === 'Gas')) { state.bills.push({ weekday: 3, name: 'Gas', amt: 100 }); try { save(); } catch (e) {} }
+  const billsOn = (y, m, d) => state.bills.filter(b => b.day === d || (b.weekday !== undefined && new Date(y, m, d).getDay() === b.weekday));
+  const fmtMoney = n => '$' + (Number(n) || 0).toLocaleString();
+  const fmtOut = n => '-' + fmtMoney(n);
+  let billSelDay = null;
 
   function renderMonthlyGrid(selDay) {
+    if (selDay !== undefined) billSelDay = selDay;
+    selDay = billSelDay;
     const g = document.getElementById('monthlyList');
     if (!g) return;
     const wrap = g.parentElement;
@@ -1670,27 +1753,167 @@
       wrap.appendChild(info);
     }
     g.innerHTML = '';
-    const total = MONTHLY_BILLS.reduce((s, b) => s + b.amt, 0);
-    for (let d = 1; d <= 28; d++) {
-      const bills = MONTHLY_BILLS.filter(b => b.day === d);
+    const sum = list => list.reduce((s, b) => s + (Number(b.amt) || 0), 0);
+    const vy = viewDate.getFullYear(), vm = viewDate.getMonth();
+    const dim = new Date(vy, vm + 1, 0).getDate();
+    const isPay = d => new Date(vy, vm, d).getDay() === 4;
+    const payIn = d => {
+      const ds = fmtDate(new Date(vy, vm, d));
+      const v = (state.income || {})[startOfWeek(ds)];
+      return v && v.paid !== undefined && v.paid !== '' ? Number(v.paid).toLocaleString() : '';
+    };
+    if (selDay > dim) selDay = billSelDay = null;
+    ['S','M','T','W','T','F','S'].forEach(l => {
+      const h = document.createElement('div');
+      h.textContent = l;
+      h.style.cssText = 'text-align:center;font-size:11px;font-weight:700;opacity:.5;padding-bottom:2px;';
+      g.appendChild(h);
+    });
+    for (let i = 0; i < new Date(vy, vm, 1).getDay(); i++) g.appendChild(document.createElement('div'));
+    for (let d = 1; d <= dim; d++) {
+      const bills = billsOn(vy, vm, d);
       const el = document.createElement('div');
       el.className = 'monthly-day' + (d === selDay ? ' sel' : '');
       el.style.flexDirection = 'column';
-      el.innerHTML = '<span>' + d + '</span>' + (bills.length ? '<span style="font-size:9px;font-weight:600;opacity:.85;">' + fmtMoney(bills.reduce((s, b) => s + b.amt, 0)) + '</span>' : '');
+      el.style.position = 'relative';
+      el.innerHTML = '<span>' + d + '</span>' + (bills.length ? '<span style="font-size:9px;font-weight:700;color:#ff5252;">' + fmtOut(sum(bills)) + '</span>' : '') + (isPay(d) ? '<span style="font-size:9px;font-weight:700;color:#4caf50;">+$' + (payIn(d) || '') + '</span>' : '');
       el.onclick = () => renderMonthlyGrid(d);
       g.appendChild(el);
     }
-    if (selDay) {
-      const bills = MONTHLY_BILLS.filter(b => b.day === selDay);
-      info.innerHTML = '<div style="font-weight:700;margin-bottom:8px;">Day ' + selDay + (bills.length ? ' — ' + fmtMoney(bills.reduce((s, b) => s + b.amt, 0)) : '') + '</div>' +
-        (bills.length ? bills.map(b => '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(128,128,128,0.2);"><span>' + b.name + '</span><span>' + fmtMoney(b.amt) + '</span></div>').join('') : '<div style="opacity:.6;">nothing due</div>');
-    } else {
-      info.innerHTML = '<div style="font-weight:700;">Total out this month: ' + fmtMoney(total) + '</div>';
+    info.innerHTML = '';
+    const payRow = (selDay && isPay(selDay)) ? '<div style="color:#4caf50;font-weight:700;margin-bottom:8px;">Payday +$' + (payIn(selDay) || '') + '</div>' : '';
+    if (!selDay) {
+      const totalIn = Array.from({ length: dim }, (_, i) => i + 1).filter(isPay).reduce((a, d) => a + (Number(String(payIn(d)).replace(/,/g, '')) || 0), 0);
+      info.innerHTML = '<div style="font-weight:700;">Total in this month: <span style="color:#4caf50;">+' + fmtMoney(totalIn) + '</span></div><div style="font-weight:700;margin-top:4px;">Total out this month: <span style="color:#ff5252;">' + fmtOut(Array.from({ length: dim }, (_, i) => sum(billsOn(vy, vm, i + 1))).reduce((a, b) => a + b, 0)) + '</span></div>';
+      return;
     }
+    const bills = billsOn(vy, vm, selDay);
+    const head = document.createElement('div');
+    head.style.cssText = 'font-weight:700;margin-bottom:8px;';
+    head.innerHTML = 'Day ' + selDay + (bills.length ? ' — <span style="color:#ff5252;">' + fmtOut(sum(bills)) + '</span>' : '');
+    info.appendChild(head);
+    if (payRow) head.insertAdjacentHTML('beforebegin', payRow);
+    const ROW = 'display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(128,128,128,0.2);';
+    const NAME = 'flex:1;min-width:0;';
+    const AMT = 'width:76px;text-align:right;';
+    const ACT = 'width:44px;display:flex;justify-content:flex-end;gap:8px;';
+    const flat = 'background:transparent;border:none;outline:none;color:inherit;font-size:inherit;font-family:inherit;padding:0;min-width:0;';
+    const edit = 'background:rgba(128,128,128,0.15);border:none;outline:none;color:inherit;font-size:inherit;font-family:inherit;padding:6px;border-radius:6px;min-width:0;';
+    const icon = (t, extra) => { const e = document.createElement('span'); e.textContent = t; e.style.cssText = 'cursor:pointer;line-height:1;' + (extra || ''); return e; };
+    bills.forEach(b => {
+      const row = document.createElement('div'); row.style.cssText = ROW;
+      const act = document.createElement('span'); act.style.cssText = ACT;
+      if (b._edit) {
+        const n = document.createElement('input'); n.value = b.name; n.style.cssText = edit + NAME;
+        const m = document.createElement('input'); m.value = b.amt; m.type = 'number'; m.inputMode = 'decimal'; m.style.cssText = edit + AMT;
+        const ok = icon('✓', 'color:#4caf50;font-weight:700;');
+        const del = icon('✕', 'opacity:.6;');
+        ok.onclick = () => { b.name = n.value.trim() || b.name; b.amt = Number(m.value) || 0; delete b._edit; save(); renderMonthlyGrid(); };
+        del.onclick = () => { state.bills = state.bills.filter(z => z !== b); save(); renderMonthlyGrid(); };
+        act.append(ok, del); row.append(n, m, act);
+      } else {
+        const l = document.createElement('span'); l.textContent = b.name; l.style.cssText = NAME;
+        const amt = document.createElement('span'); amt.textContent = fmtOut(b.amt); amt.style.cssText = AMT + 'color:#ff5252;';
+        const pen = icon('✎', 'opacity:.7;font-size:15px;');
+        pen.onclick = () => { b._edit = true; renderMonthlyGrid(); };
+        act.appendChild(pen); row.append(l, amt, act);
+      }
+      info.appendChild(row);
+    });
+    const add = document.createElement('div'); add.style.cssText = ROW;
+    const an = document.createElement('input'); an.placeholder = 'New bill'; an.style.cssText = flat + NAME;
+    const am = document.createElement('input'); am.placeholder = '$'; am.type = 'number'; am.inputMode = 'decimal'; am.style.cssText = flat + AMT;
+    const actA = document.createElement('span'); actA.style.cssText = ACT;
+    const ab = icon('+', 'font-weight:700;color:#1656d6;font-size:18px;');
+    const doAdd = () => {
+      if (!an.value.trim()) return;
+      state.bills.push({ day: selDay, name: an.value.trim(), amt: Number(am.value) || 0 });
+      save(); renderMonthlyGrid();
+    };
+    ab.onclick = doAdd;
+    [an, am].forEach(i => i.onkeydown = e => { if (e.key === 'Enter') doAdd(); });
+    actA.appendChild(ab); add.append(an, am, actA); info.appendChild(add);
   }
   renderMonthlyGrid();
 
+  // ---- Monthly objectives box (max 8) ----
+  const MAX_OBJ = 8;
+  if (!Array.isArray(state.monthlyObjs)) {
+    state.monthlyObjs = ['Grocery shop', 'Shop for Chapo', 'Household shopping', 'Chapo bath', 'Clean house'].map(n => ({ id: uid(), name: n }));
+    try { save(); } catch (e) {}
+  }
+  ['Car wash', 'Meal prep'].forEach(n => {
+    if (state.monthlyObjs.length < 8 && !state.monthlyObjs.some(o => o.name.toLowerCase() === n.toLowerCase())) state.monthlyObjs.push({ id: uid(), name: n });
+  });
+  try { save(); } catch (e) {}
+  state.monthlyDone = state.monthlyDone || {};
+  let objEditId = null;
+
+  let monthlyObjOpen = false;
+  function renderMonthlyObjs() {
+    const wrap = document.getElementById('subMonthly');
+    if (!wrap) return;
+    let outer = document.getElementById('monthlyObjBox');
+    if (!outer) {
+      outer = document.createElement('div');
+      outer.id = 'monthlyObjBox';
+      outer.style.cssText = 'margin-top:18px;';
+      wrap.appendChild(outer);
+    }
+    outer.innerHTML = '';
+    // Header looks exactly like the "Monthly Routines" box in the weekly routine; tap to expand.
+    const head = document.createElement('div');
+    head.className = 'swipe-content task-item task-item-monthly';
+    head.style.cursor = 'pointer';
+    head.innerHTML = '<div class="task-body"><div class="task-title">Monthly Routines</div></div>';
+    head.onclick = () => { monthlyObjOpen = !monthlyObjOpen; renderMonthlyObjs(); };
+    outer.appendChild(head);
+    if (!monthlyObjOpen) return;
+    const box = document.createElement('div');
+    box.style.cssText = 'margin-top:6px;background:#000;border:1.5px solid #fff;border-radius:10px;padding:4px 14px 8px;';
+    outer.appendChild(box);
+    const key = viewDate.getFullYear() + '-' + String(viewDate.getMonth() + 1).padStart(2, '0');
+    const done = state.monthlyDone[key] = state.monthlyDone[key] || {};
+    const ROW = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.15);color:#fff;';
+    const icon = (t, extra) => { const e = document.createElement('span'); e.textContent = t; e.style.cssText = 'cursor:pointer;line-height:1;' + (extra || ''); return e; };
+    state.monthlyObjs.forEach(o => {
+      const row = document.createElement('div'); row.style.cssText = ROW;
+      if (objEditId === o.id) {
+        const n = document.createElement('input'); n.value = o.name;
+        n.style.cssText = 'flex:1;min-width:0;background:rgba(255,255,255,0.15);border:none;outline:none;color:#fff;font-size:inherit;font-family:inherit;padding:6px;border-radius:6px;';
+        const ok = icon('✓', 'color:#4caf50;font-weight:700;');
+        const del = icon('✕', 'opacity:.6;');
+        ok.onclick = () => { o.name = n.value.trim() || o.name; objEditId = null; save(); renderMonthlyObjs(); };
+        del.onclick = () => { state.monthlyObjs = state.monthlyObjs.filter(z => z !== o); objEditId = null; save(); renderMonthlyObjs(); };
+        row.append(n, ok, del);
+      } else {
+        const chk = document.createElement('span');
+        chk.style.cssText = 'width:20px;height:20px;border-radius:50%;border:2px solid #fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;flex:none;' + (done[o.id] ? 'background:#4caf50;border-color:#4caf50;' : '');
+        chk.textContent = done[o.id] ? '✓' : '';
+        chk.onclick = () => { done[o.id] = !done[o.id]; save(); renderMonthlyObjs(); };
+        const l = document.createElement('span'); l.textContent = o.name; l.style.cssText = 'flex:1;min-width:0;' + (done[o.id] ? 'opacity:.5;text-decoration:line-through;' : '');
+        const pen = icon('✎', 'opacity:.7;font-size:15px;');
+        pen.onclick = () => { objEditId = o.id; renderMonthlyObjs(); };
+        row.append(chk, l, pen);
+      }
+      box.appendChild(row);
+    });
+    if (state.monthlyObjs.length < MAX_OBJ) {
+      const add = document.createElement('div'); add.style.cssText = ROW;
+      const an = document.createElement('input'); an.placeholder = 'New objective';
+      an.style.cssText = 'flex:1;min-width:0;background:transparent;border:none;outline:none;color:#fff;font-size:inherit;font-family:inherit;padding:0;';
+      const ab = icon('+', 'font-weight:700;color:#1656d6;font-size:18px;');
+      const doAdd = () => { if (!an.value.trim()) return; state.monthlyObjs.push({ id: uid(), name: an.value.trim() }); save(); renderMonthlyObjs(); };
+      ab.onclick = doAdd; an.onkeydown = e => { if (e.key === 'Enter') doAdd(); };
+      add.append(an, ab); box.appendChild(add);
+    }
+    const cnt = document.createElement('div'); cnt.style.cssText = 'text-align:right;font-size:11px;opacity:.5;color:#fff;margin-top:4px;';
+    cnt.textContent = state.monthlyObjs.length + '/' + MAX_OBJ; box.appendChild(cnt);
+  }
+  renderMonthlyObjs();
+
   function switchSub(w) {
+    if (w === 'monthly') { renderMonthlyGrid(); renderMonthlyObjs(); }
     document.getElementById('subWeekly').style.display = w === 'weekly' ? '' : 'none';
     document.getElementById('subMonthly').style.display = w === 'monthly' ? '' : 'none';
     document.querySelectorAll('.sub-tab').forEach(t => t.classList.toggle('active', t.dataset.sub === w));
@@ -1912,6 +2135,7 @@
     if (t.title === 'Workout') item.classList.add('task-item-workout');
     if (t.title === 'Morning Routine') item.classList.add('task-item-morning');
     if (t.title === 'Night Routine') item.classList.add('task-item-night');
+    if (t.title === 'Monthly Routines') item.classList.add('task-item-monthly');
     if (t.title === 'Work') item.classList.add('task-item-work');
     if (isRoutine && options.routineTemplate && t.title === 'Workout') {
       item.style.cursor = 'pointer';
@@ -1928,6 +2152,10 @@
     if (isRoutine && options.routineTemplate && t.title === 'Work') {
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); startWorkScheduling(); });
+    }
+    if (isRoutine && options.routineTemplate && t.title === 'Monthly Routines') {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); startMonthlyScheduling(); });
     }
     if (isScheduledWorkout) {
       item.style.cursor = 'pointer';
@@ -1956,7 +2184,7 @@
   }
 
   // ---- Info popups: tap the "i" on Workout/Morning/Work/Night cards to see the full plan ----
-  const INFO_TITLES = ['Workout', 'Morning Routine', 'Work', 'Night Routine'];
+  const INFO_TITLES = ['Workout', 'Morning Routine', 'Work', 'Night Routine', 'Monthly Routines'];
   const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   function fmtDur(min) {
@@ -2011,7 +2239,14 @@
       const totalMin = steps.reduce((sum, s) => sum + s.sec / 60, 0);
       const body = steps.map(s => `• ${s.name} — ${Math.round(s.sec / 60)}m`).join('<br>');
       openInfoSheet(`Night Routine — ${dayName} (${fmtDur(totalMin)})`, body);
+    } else if (t.title === 'Monthly Routines') {
+      showMonthlyInfo();
     }
+  }
+  function showMonthlyInfo() {
+    const objs = state.monthlyObjs || [];
+    const body = objs.length ? objs.map(o => `• ${o.name}`).join('<br>') : '<div class="empty-state">No monthly routines yet.</div>';
+    openInfoSheet(`Monthly Routines (${objs.length}/8)`, body);
   }
 
   function openInfoSheet(title, bodyHtml) {
