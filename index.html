@@ -390,6 +390,7 @@
   .monthly-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
   .monthly-day { aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:10px; font-size:15px; font-weight:600; background:rgba(128,128,128,0.15); cursor:pointer; }
   .monthly-day.sel { background:#1656d6; color:#fff; }
+  #reportBody input[type=number]::-webkit-outer-spin-button, #reportBody input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 </style>
 </head>
 <body>
@@ -919,19 +920,29 @@
     const money = n => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     const hasPaid = inc.paid !== undefined && inc.paid !== '';
     const hasProj = inc.projected !== undefined && inc.projected !== '';
-    const inpS = 'background:rgba(128,128,128,0.15);border:none;outline:none;color:#4caf50;font-weight:700;font-size:16px;font-family:inherit;padding:8px 10px;border-radius:8px;width:110px;text-align:right;';
+    // Projected = this pay week's shifts across all current jobs (clocked = real pay, scheduled = estimate), minus estimated tax.
+    const TAX_RATE = 0.20;
+    let projGross = 0;
+    weekDates.forEach(dateStr => {
+      (state.tasks[dateStr] || []).forEach(t => {
+        if (t.title !== 'Work' || !t.job || !JOB_RATES[t.job]) return;
+        projGross += t.clockedOut ? (Number(t.actualPay) || 0) : (Number(t.pay) || 0);
+      });
+    });
+    const projNet = projGross * (1 - TAX_RATE);
+    const boxS = 'flex:0 0 112px;width:112px;height:112px;box-sizing:border-box;border:1.5px solid #fff;border-radius:12px;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;';
+    const valS = '-moz-appearance:textfield;appearance:textfield;width:68px;background:transparent;border:none;outline:none;text-align:center;font-size:20px;font-weight:800;font-family:inherit;color:#4caf50;padding:0;';
     html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Income</h2></div>
-      <div class="hour-block" style="border:1.5px solid #fff;padding:10px 12px;box-sizing:border-box;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div style="font-weight:700;font-size:13px;">Made (paste weekly)</div>
-          <input type="number" inputmode="decimal" placeholder="+$0" value="${hasPaid ? inc.paid : ''}" onchange="setIncome('paid', this.value)" style="${inpS}">
+      <div style="display:flex;gap:12px;">
+        <div style="${boxS}">
+          <div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Made</div>
+          <div style="display:flex;align-items:center;justify-content:center;color:#4caf50;font-size:20px;font-weight:800;"><span>$</span><input type="number" inputmode="decimal" placeholder="0" value="${hasPaid ? inc.paid : ''}" onchange="setIncome('paid', this.value)" style="${valS}width:64px;text-align:left;"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div style="font-weight:700;font-size:13px;">Projected</div>
-          <input type="number" inputmode="decimal" placeholder="+$0" value="${hasProj ? inc.projected : ''}" onchange="setIncome('projected', this.value)" style="${inpS}opacity:.8;">
+        <div style="${boxS}">
+          <div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Projected</div>
+          <div style="color:#4caf50;font-size:20px;font-weight:800;">$${Math.round(projNet).toLocaleString()}</div>
+          <div style="font-size:9px;color:#fff;opacity:.55;text-align:center;line-height:1.3;">$${Math.round(projGross).toLocaleString()} gross<br>after ${Math.round(TAX_RATE * 100)}% tax</div>
         </div>
-        ${hasPaid && hasProj ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding-top:6px;border-top:1px solid rgba(128,128,128,0.3);"><span>${Number(inc.paid) >= Number(inc.projected) ? 'Ahead of projection' : 'Behind projection'}</span><span style="font-weight:700;color:${Number(inc.paid) >= Number(inc.projected) ? '#4caf50' : '#ff5252'};">${Number(inc.paid) >= Number(inc.projected) ? '+' : '-'}${money(Math.abs(Number(inc.paid) - Number(inc.projected)))}</span></div>` : ''}
-        ${hasPaid ? `<div style="text-align:right;font-weight:800;font-size:18px;color:#4caf50;margin-top:8px;">+${money(inc.paid)}</div>` : ''}
       </div>`;
 
     html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Workout Tracker</h2></div>`;
