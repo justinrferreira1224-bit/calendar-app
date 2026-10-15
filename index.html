@@ -654,6 +654,10 @@
   let pendingMonthlyObj = null;
 
   // Monthly Routines (Mon/Wed boxes): pick one of the monthly objectives, then a date, then start/end time.
+  // Each monthly objective can be scheduled only once per calendar month.
+  function monthlyObjScheduled(name, ym) {
+    return Object.keys(state.tasks).some(d => d.startsWith(ym + '-') && (state.tasks[d] || []).some(t => t.monthlyObj && t.title === name));
+  }
   function startMonthlyScheduling() {
     document.getElementById('jobPickTitle').textContent = 'Which routine?';
     const row = document.getElementById('jobChipRow');
@@ -661,7 +665,10 @@
     (state.monthlyObjs || []).forEach(o => {
       const chip = document.createElement('div');
       chip.className = 'chip';
-      chip.textContent = o.name;
+      const ym = viewDate.getFullYear() + '-' + String(viewDate.getMonth() + 1).padStart(2, '0');
+      const taken = monthlyObjScheduled(o.name, ym);
+      chip.textContent = o.name + (taken ? ' ✓' : '');
+      if (taken) { chip.style.opacity = '.35'; chip.style.pointerEvents = 'none'; }
       chip.onclick = () => {
         pendingMonthlyObj = o.name;
         closeJobPickSheet();
@@ -1030,6 +1037,7 @@
         return startMin < bEnd && endMin > bStart;
       });
       if (clash) { alert('That overlaps something already scheduled that day.'); return; }
+      if (pendingMonthlyObj && monthlyObjScheduled(pendingMonthlyObj, pendingWorkoutDate.slice(0, 7))) { alert(pendingMonthlyObj + ' is already scheduled this month.'); return; }
       const rate = JOB_RATES[pendingWorkJob] || 0;
       extra = pendingMonthlyObj ? { monthlyObj: true } : { job: pendingWorkJob, rate, pay: Math.round(rate * dur / 60 * 100) / 100, overnight };
     }
