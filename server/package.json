@@ -1,0 +1,9 @@
+{
+  "name": "calendar-bank-server",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "cors": "^2.8.5", "express": "^4.19.2", "plaid": "^26.0.0" }
+}
