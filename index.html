@@ -1805,6 +1805,10 @@
       const v = (state.income || {})[startOfWeek(ds)];
       return v && v.paid !== undefined && v.paid !== '' ? Number(v.paid).toLocaleString() : '';
     };
+    const mkey = vy + '-' + String(vm + 1).padStart(2, '0');
+    const hasBank = !!((state.bankDeposits || {})[mkey] && state.bankDeposits[mkey].list);
+    const depOn = d => bankDepositsOn(vy, vm, d) || [];
+    if (typeof refreshDeposits === 'function') refreshDeposits(mkey).then(ch => { if (ch) renderMonthlyGrid(); });
     if (selDay > dim) selDay = billSelDay = null;
     ['S','M','T','W','T','F','S'].forEach(l => {
       const h = document.createElement('div');
@@ -1819,12 +1823,12 @@
       el.className = 'monthly-day' + (d === selDay ? ' sel' : '');
       el.style.flexDirection = 'column';
       el.style.position = 'relative';
-      el.innerHTML = '<span>' + d + '</span>' + (bills.length ? '<span style="font-size:9px;font-weight:700;color:#ff5252;">' + fmtOut(sum(bills)) + '</span>' : '') + (isPay(d) ? '<span style="font-size:9px;font-weight:700;color:#4caf50;">+$' + (payIn(d) || '') + '</span>' : '');
+      el.innerHTML = '<span>' + d + '</span>' + (bills.length ? '<span style="font-size:9px;font-weight:700;color:#ff5252;">' + fmtOut(sum(bills)) + '</span>' : '') + (hasBank ? (depOn(d).length ? '<span style="font-size:9px;font-weight:700;color:#4caf50;">+' + fmtMoney(depOn(d).reduce((a, x) => a + x.amount, 0)) + '</span>' : '') : (isPay(d) ? '<span style="font-size:9px;font-weight:700;color:#4caf50;">+$' + (payIn(d) || '') + '</span>' : ''));
       el.onclick = () => renderMonthlyGrid(d);
       g.appendChild(el);
     }
     info.innerHTML = '';
-    const payRow = (selDay && isPay(selDay)) ? '<div style="color:#4caf50;font-weight:700;margin-bottom:8px;">Payday +$' + (payIn(selDay) || '') + '</div>' : '';
+    const payRow = selDay ? (hasBank ? depOn(selDay).map(x => '<div style="color:#4caf50;font-weight:700;margin-bottom:8px;display:flex;gap:8px;"><span style="flex:1;min-width:0;">' + String(x.name).replace(/</g, '&lt;') + '</span><span>+' + fmtMoney(x.amount) + '</span></div>').join('') : (isPay(selDay) ? '<div style="color:#4caf50;font-weight:700;margin-bottom:8px;">Payday +$' + (payIn(selDay) || '') + '</div>' : '')) : '';
     if (!selDay) {
       const mk = vy + '-' + String(vm + 1).padStart(2, '0');
       const mInc = (state.incomeMonth || {})[mk];
@@ -1992,11 +1996,12 @@
     try {
       const j = await bankFetch('/deposits?start=' + ym + '-01&end=' + (end > today ? today : end));
       const prev = state.bankDeposits[ym];
-      state.bankDeposits[ym] = { total: j.total, asOf: new Date().toISOString() };
+      state.bankDeposits[ym] = { total: j.total, list: (j.deposits || []).map(x => ({ date: x.date, name: x.name, amount: x.amount })), asOf: new Date().toISOString() };
       save();
-      return !prev || prev.total !== j.total;
+      return !prev || prev.total !== j.total || !prev.list;
     } catch (e) { return false; }
   }
+  function bankDepositsOn(y, m, d) { const k = y + '-' + String(m + 1).padStart(2, '0'); const bd = (state.bankDeposits || {})[k]; if (!bd || !bd.list) return null; const ds = k + '-' + String(d).padStart(2, '0'); return bd.list.filter(x => x.date === ds); }
   function bankIncomeFor(ym) { const d = (state.bankDeposits || {})[ym]; return d ? d.total : null; }
 
   window.addEventListener('load', () => {
