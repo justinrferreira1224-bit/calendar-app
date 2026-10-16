@@ -401,6 +401,11 @@
     <div class="nav-arrows"><span onclick="shiftMonth(-1)">&larr;</span><span onclick="shiftMonth(1)">&rarr;</span></div>
   </div>
 
+  <div id="balanceBar" onclick="openBankSheet()" style="margin:0 18px 8px 18px;padding:8px 12px;border-radius:10px;background:#0b0b0b;border:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;">
+    <span style="opacity:.7;">Bank balance</span>
+    <span id="balanceVal" style="font-weight:800;color:#4caf50;">Connect bank</span>
+  </div>
+
   <div class="tabs">
     <div class="tab" data-tab="schedule" onclick="switchTab('schedule')">Schedule</div>
     <div class="tab active" data-tab="calendar" onclick="switchTab('calendar')">Calendar</div>
@@ -522,6 +527,20 @@
     <div class="sheet-actions">
       <button class="btn btn-secondary" onclick="closeClockSheet()">cancel</button>
       <button class="btn btn-primary" id="clockSheetNextBtn" onclick="clockSheetNext()">next</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="bankBackdrop">
+  <div class="sheet">
+    <h3>Bank</h3>
+    <div id="bankStatus" style="font-size:13px;color:#ccc;line-height:1.7;margin-bottom:10px;"></div>
+    <div id="bankAccounts" style="font-size:13px;margin-bottom:10px;"></div>
+    <input id="bankPass" type="password" placeholder="App passcode" autocomplete="off" style="width:100%;box-sizing:border-box;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:10px;color:#fff;font-size:15px;margin-bottom:10px;">
+    <div class="sheet-actions" style="flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-secondary" onclick="closeBankSheet()">close</button>
+      <button class="btn btn-secondary" onclick="bankSavePass()">save &amp; refresh</button>
+      <button class="btn" onclick="bankConnect()">connect Chase</button>
     </div>
   </div>
 </div>
@@ -940,7 +959,7 @@
       <div style="display:flex;gap:12px;">
         <div style="${boxS}">
           <div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Made</div>
-          <div style="display:flex;align-items:center;justify-content:center;color:#4caf50;font-size:20px;font-weight:800;"><span>$</span><input type="number" inputmode="decimal" placeholder="0" value="${hasPaid ? inc.paid : ''}" onchange="setIncome('paid', this.value)" style="${valS}width:64px;text-align:left;"></div>
+          ${bankIncomeFor(ymKey) !== null ? `<div style="color:#4caf50;font-size:20px;font-weight:800;">$${Math.round(bankIncomeFor(ymKey)).toLocaleString()}</div><div style="font-size:9px;color:#fff;opacity:.55;">from bank</div>` : `<div style="display:flex;align-items:center;justify-content:center;color:#4caf50;font-size:20px;font-weight:800;"><span>$</span><input type="number" inputmode="decimal" placeholder="0" value="${hasPaid ? inc.paid : ''}" onchange="setIncome('paid', this.value)" style="${valS}width:64px;text-align:left;"></div>`}
         </div>
         <div style="${boxS}">
           <div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Projected</div>
@@ -967,6 +986,7 @@
     }
 
     document.getElementById('reportBody').innerHTML = html;
+    refreshDeposits(ymKey).then(changed => { if (changed && document.getElementById('view-report').classList.contains('active') && reportMonthKey() === ymKey) renderReport(); });
   }
 
   function hourOptions(select) {
@@ -1809,7 +1829,8 @@
       const mk = vy + '-' + String(vm + 1).padStart(2, '0');
       const mInc = (state.incomeMonth || {})[mk];
       const totalInWeekly = Array.from({ length: dim }, (_, i) => i + 1).filter(isPay).reduce((a, d) => a + (Number(String(payIn(d)).replace(/,/g, '')) || 0), 0);
-      const totalIn = (mInc && mInc.paid !== undefined && mInc.paid !== '') ? Number(mInc.paid) : totalInWeekly;
+      const bIn = bankIncomeFor(mk);
+      const totalIn = bIn !== null ? bIn : ((mInc && mInc.paid !== undefined && mInc.paid !== '') ? Number(mInc.paid) : totalInWeekly);
       info.innerHTML = '<div style="font-weight:700;">Total in this month: <span style="color:#4caf50;">+' + fmtMoney(totalIn) + '</span></div><div style="font-weight:700;margin-top:4px;">Total out this month: <span style="color:#ff5252;">' + fmtOut(Array.from({ length: dim }, (_, i) => sum(billsOn(vy, vm, i + 1))).reduce((a, b) => a + b, 0)) + '</span></div>';
       return;
     }
@@ -1861,6 +1882,131 @@
     actA.appendChild(ab); add.append(an, am, actA); info.appendChild(add);
   }
   renderMonthlyGrid();
+
+
+  // ================= Bank link (talks to the calendar-bank server on Render; keys never touch this app) =================
+  const BANK_URL = 'https://calendar-bank.onrender.com';
+  function bankPass() { try { return localStorage.getItem('bank_pass') || ''; } catch (e) { return ''; } }
+  function bankCache() { try { return JSON.parse(localStorage.getItem('bank_cache') || 'null'); } catch (e) { return null; } }
+  function bankMoney(n) { return (n < 0 ? '-$' : '$') + Math.abs(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  let bankBusy = '';
+  let bankLinkMsg = '';
+
+  async function bankFetch(path, opts) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 75000); // free servers can take ~1 min to wake up
+    try {
+      const r = await fetch(BANK_URL + path, { ...(opts || {}), signal: ctrl.signal, headers: { 'Content-Type': 'application/json', 'x-app-passcode': bankPass(), ...((opts && opts.headers) || {}) } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { const e = new Error(j.error || ('http_' + r.status)); e.code = j.error || r.status; throw e; }
+      return j;
+    } finally { clearTimeout(timer); }
+  }
+
+  function renderBalanceBar() {
+    const el = document.getElementById('balanceVal');
+    if (!el) return;
+    const c = bankCache();
+    if (bankBusy === 'wake' && !c) { el.style.color = '#aaa'; el.textContent = 'waking up…'; return; }
+    if (!bankPass()) { el.style.color = '#1656d6'; el.textContent = 'Connect bank'; return; }
+    if (c) { el.style.color = '#4caf50'; el.textContent = bankMoney(c.total) + (bankBusy ? ' ⟳' : ''); }
+    else { el.style.color = '#aaa'; el.textContent = bankBusy ? 'loading…' : 'Tap to link'; }
+  }
+
+  async function refreshBalance() {
+    if (!bankPass()) { renderBalanceBar(); return; }
+    bankBusy = 'wake'; renderBalanceBar();
+    try {
+      const j = await bankFetch('/balance');
+      try { localStorage.setItem('bank_cache', JSON.stringify(j)); } catch (e) {}
+      bankLinkMsg = '';
+    } catch (e) {
+      bankLinkMsg = e.code === 'not_linked' ? 'Server is up, but no bank is linked yet.' : e.code === 'unauthorized' ? 'Wrong passcode.' : 'Couldn’t reach the server (it may be waking up). Showing your last balance.';
+    }
+    bankBusy = '';
+    renderBalanceBar();
+    if (document.getElementById('bankBackdrop').classList.contains('open')) renderBankSheet();
+  }
+
+  function renderBankSheet() {
+    const c = bankCache();
+    document.getElementById('bankPass').value = bankPass();
+    document.getElementById('bankStatus').textContent = bankLinkMsg || (c ? 'Updated ' + new Date(c.asOf).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : (bankPass() ? 'Not linked yet — tap connect Chase.' : 'Enter your app passcode, then connect Chase.'));
+    document.getElementById('bankAccounts').innerHTML = c ? c.accounts.map(a => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;"><span>${a.name}${a.mask ? ' ••' + a.mask : ''}</span><span style="color:#4caf50;font-weight:700;">${bankMoney(a.available ?? a.current)}</span></div>`).join('') : '';
+  }
+  function openBankSheet() { renderBankSheet(); document.getElementById('bankBackdrop').classList.add('open'); if (bankPass()) refreshBalance(); }
+  function closeBankSheet() { document.getElementById('bankBackdrop').classList.remove('open'); }
+  function bankSavePass() {
+    try { localStorage.setItem('bank_pass', document.getElementById('bankPass').value.trim()); } catch (e) {}
+    refreshBalance();
+  }
+
+  function loadPlaidScript() {
+    return new Promise((resolve, reject) => {
+      if (window.Plaid) return resolve();
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+      sc.onload = resolve; sc.onerror = () => reject(new Error('plaid_script'));
+      document.head.appendChild(sc);
+    });
+  }
+  async function openPlaid(token, receivedRedirectUri) {
+    await loadPlaidScript();
+    const cfg = {
+      token,
+      onSuccess: async (publicToken) => {
+        document.getElementById('bankStatus').textContent = 'Linking…';
+        try { await bankFetch('/link/exchange', { method: 'POST', body: JSON.stringify({ public_token: publicToken }) }); bankLinkMsg = ''; } catch (e) { bankLinkMsg = 'Link failed: ' + e.message; }
+        try { localStorage.removeItem('bank_link_token'); } catch (e) {}
+        refreshBalance();
+      },
+      onExit: () => {}
+    };
+    if (receivedRedirectUri) cfg.receivedRedirectUri = receivedRedirectUri;
+    Plaid.create(cfg).open();
+  }
+  async function bankConnect() {
+    try { localStorage.setItem('bank_pass', document.getElementById('bankPass').value.trim()); } catch (e) {}
+    document.getElementById('bankStatus').textContent = 'Starting… (first tap can take a minute while the server wakes up)';
+    try {
+      const j = await bankFetch('/link/token', { method: 'POST', body: '{}' });
+      try { localStorage.setItem('bank_link_token', j.link_token); } catch (e) {}
+      await openPlaid(j.link_token);
+    } catch (e) {
+      bankLinkMsg = e.code === 'unauthorized' ? 'Wrong passcode.' : 'Couldn’t start the link: ' + e.message;
+      renderBankSheet();
+    }
+  }
+
+  // Deposits (money in) for a month, straight from the bank.
+  state.bankDeposits = state.bankDeposits || {};
+  const depositFetchedAt = {};
+  async function refreshDeposits(ym, force) {
+    if (!bankPass() || !bankCache()) return false;
+    if (!force && depositFetchedAt[ym] && Date.now() - depositFetchedAt[ym] < 60000) return false;
+    depositFetchedAt[ym] = Date.now();
+    const [y, m] = ym.split('-').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    const end = ym + '-' + String(last).padStart(2, '0');
+    const today = fmtDate(new Date());
+    try {
+      const j = await bankFetch('/deposits?start=' + ym + '-01&end=' + (end > today ? today : end));
+      const prev = state.bankDeposits[ym];
+      state.bankDeposits[ym] = { total: j.total, asOf: new Date().toISOString() };
+      save();
+      return !prev || prev.total !== j.total;
+    } catch (e) { return false; }
+  }
+  function bankIncomeFor(ym) { const d = (state.bankDeposits || {})[ym]; return d ? d.total : null; }
+
+  window.addEventListener('load', () => {
+    renderBalanceBar();
+    refreshBalance();
+    try {
+      if (location.search.indexOf('oauth_state_id') !== -1) { const t = localStorage.getItem('bank_link_token'); if (t) openPlaid(t, location.href); }
+    } catch (e) {}
+  });
+  setInterval(() => { if (document.visibilityState === 'visible') refreshBalance(); }, 5 * 60 * 1000);
 
   // ---- Monthly objectives box (max 8) ----
   const MAX_OBJ = 8;
