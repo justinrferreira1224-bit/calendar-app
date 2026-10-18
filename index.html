@@ -1913,7 +1913,7 @@
     const c = bankCache();
     if (bankBusy === 'wake' && !c) { el.style.color = '#aaa'; el.textContent = 'waking up…'; return; }
     if (!bankPass()) { el.style.color = '#1656d6'; el.textContent = 'Connect bank'; return; }
-    if (c) { el.style.color = '#4caf50'; el.textContent = bankMoney(c.total) + (bankBusy ? ' ⟳' : ''); }
+    if (c) { el.style.color = Number(c.total) < 0 ? '#ff5252' : '#4caf50'; el.textContent = bankMoney(c.total) + (bankBusy ? ' ⟳' : ''); }
     else { el.style.color = '#aaa'; el.textContent = bankBusy ? 'loading…' : 'Tap to link'; }
   }
 
@@ -1936,7 +1936,7 @@
     const c = bankCache();
     document.getElementById('bankPass').value = bankPass();
     document.getElementById('bankStatus').textContent = bankLinkMsg || (c ? 'Updated ' + new Date(c.asOf).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : (bankPass() ? 'Not linked yet — tap connect Chase.' : 'Enter your app passcode, then connect Chase.'));
-    document.getElementById('bankAccounts').innerHTML = c ? c.accounts.map(a => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;"><span>${a.name}${a.mask ? ' ••' + a.mask : ''}</span><span style="color:#4caf50;font-weight:700;">${bankMoney(a.available ?? a.current)}</span></div>`).join('') : '';
+    document.getElementById('bankAccounts').innerHTML = c ? c.accounts.map(a => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;"><span>${a.name}${a.mask ? ' ••' + a.mask : ''}</span><span style="color:${Number(a.available ?? a.current) < 0 ? '#ff5252' : '#4caf50'};font-weight:700;">${bankMoney(a.available ?? a.current)}</span></div>`).join('') : '';
   }
   function openBankSheet() { renderBankSheet(); document.getElementById('bankBackdrop').classList.add('open'); if (bankPass()) refreshBalance(); }
   function closeBankSheet() { document.getElementById('bankBackdrop').classList.remove('open'); }
