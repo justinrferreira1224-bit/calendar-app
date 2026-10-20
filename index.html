@@ -1589,8 +1589,6 @@
   function save() {
     const ser = () => JSON.stringify(state, (k, v) => k === '_edit' ? undefined : v);
     try { localStorage.setItem('cal_state', ser()); return; } catch (e) {}
-    // Storage full: drop re-fetchable bank data and try again.
-    try { Object.values(state.bankDeposits || {}).forEach(d => { delete d.list; }); localStorage.setItem('cal_state', ser()); return; } catch (e) {}
     if (!window._saveWarned) { window._saveWarned = true; alert('Phone storage is full, so this could not be saved. Remove a workout photo to free space.'); }
   }
   function fmtDate(d) {
@@ -1813,7 +1811,7 @@
       return v && v.paid !== undefined && v.paid !== '' ? Number(v.paid).toLocaleString() : '';
     };
     const mkey = vy + '-' + String(vm + 1).padStart(2, '0');
-    const hasBank = !!((state.bankDeposits || {})[mkey] && state.bankDeposits[mkey].list);
+    const hasBank = !!depStore()[mkey];
     const depOn = d => bankDepositsOn(vy, vm, d) || [];
     if (typeof refreshDeposits === 'function') refreshDeposits(mkey).then(ch => { if (ch) renderMonthlyGrid(); });
     if (selDay > dim) selDay = billSelDay = null;
@@ -1991,8 +1989,10 @@
 
   // Deposits (money in) for a month, straight from the bank.
   state.bankDeposits = state.bankDeposits || {};
-  const depositFetchedAt = {};
+  var depositFetchedAt = {};
   async function refreshDeposits(ym, force) {
+    depositFetchedAt = depositFetchedAt || {};
+    state.bankDeposits = state.bankDeposits || {};
     if (!bankPass() || !bankCache()) return false;
     if (!force && depositFetchedAt[ym] && Date.now() - depositFetchedAt[ym] < 60000) return false;
     depositFetchedAt[ym] = Date.now();
@@ -2003,12 +2003,17 @@
     try {
       const j = await bankFetch('/deposits?start=' + ym + '-01&end=' + (end > today ? today : end));
       const prev = state.bankDeposits[ym];
-      state.bankDeposits[ym] = { total: j.total, list: (j.deposits || []).map(x => ({ date: x.date, name: x.name, amount: x.amount })), asOf: new Date().toISOString() };
+      const dl = (j.deposits || []).map(x => ({ date: x.date, name: x.name, amount: x.amount }));
+      const hadList = !!depStore()[ym];
+      depStore()[ym] = dl; try { localStorage.setItem('bank_deps', JSON.stringify(depStore())); } catch (e) {}
+      state.bankDeposits[ym] = { total: j.total, asOf: new Date().toISOString() };
       save();
-      return !prev || prev.total !== j.total || !prev.list;
+      return !prev || prev.total !== j.total || !hadList;
     } catch (e) { return false; }
   }
-  function bankDepositsOn(y, m, d) { const k = y + '-' + String(m + 1).padStart(2, '0'); const bd = (state.bankDeposits || {})[k]; if (!bd || !bd.list) return null; const ds = k + '-' + String(d).padStart(2, '0'); return bd.list.filter(x => x.date === ds); }
+  var _deps = null;
+  function depStore() { if (!_deps) { try { _deps = JSON.parse(localStorage.getItem('bank_deps') || '{}') || {}; } catch (e) { _deps = {}; } } return _deps; }
+  function bankDepositsOn(y, m, d) { const k = y + '-' + String(m + 1).padStart(2, '0'); const l = depStore()[k]; if (!l) return null; const ds = k + '-' + String(d).padStart(2, '0'); return l.filter(x => x.date === ds); }
   function bankIncomeFor(ym) { const d = (state.bankDeposits || {})[ym]; return d ? d.total : null; }
 
   window.addEventListener('load', () => {
