@@ -669,7 +669,8 @@
   }
 
   // ---- Work: pick a job, then a date, then start/end time (shift length varies) ----
-  const JOB_RATES = { 'CarMax': 20, 'Valet': 19 };
+  const JOB_RATES = { 'CarMax': 20, 'Valet': 19 }; // Valet kept so old shifts still count in reports
+  const ACTIVE_JOBS = ['CarMax']; // jobs you can pick for new shifts
   let pendingWorkJob = null;
   let pendingMonthlyObj = null;
 
@@ -708,7 +709,7 @@
     document.getElementById('jobPickTitle').textContent = 'Which job?';
     const row = document.getElementById('jobChipRow');
     row.innerHTML = '';
-    Object.keys(JOB_RATES).forEach(job => {
+    ACTIVE_JOBS.forEach(job => {
       const chip = document.createElement('div');
       chip.className = 'chip';
       chip.textContent = job;
@@ -1585,7 +1586,13 @@
     cancelBtn.onclick = () => cleanup();
   }
 
-  function save() { localStorage.setItem('cal_state', JSON.stringify(state, (k, v) => k === '_edit' ? undefined : v)); }
+  function save() {
+    const ser = () => JSON.stringify(state, (k, v) => k === '_edit' ? undefined : v);
+    try { localStorage.setItem('cal_state', ser()); return; } catch (e) {}
+    // Storage full: drop re-fetchable bank data and try again.
+    try { Object.values(state.bankDeposits || {}).forEach(d => { delete d.list; }); localStorage.setItem('cal_state', ser()); return; } catch (e) {}
+    if (!window._saveWarned) { window._saveWarned = true; alert('Phone storage is full, so this could not be saved. Remove a workout photo to free space.'); }
+  }
   function fmtDate(d) {
     // Local date components, not UTC — toISOString() shifts to the next
     // calendar day once local time is late enough to cross into the next UTC day.
@@ -2408,7 +2415,7 @@
         }
         openInfoSheet(dur ? `Work (${fmtDur(dur)})` : 'Work', body);
       } else {
-        const body = Object.entries(JOB_RATES).map(([job, rate]) => `• ${job} — $${rate}/hr`).join('<br>');
+        const body = Object.entries(JOB_RATES).filter(([job]) => ACTIVE_JOBS.includes(job)).map(([job, rate]) => `• ${job} — $${rate}/hr`).join('<br>');
         openInfoSheet('Work — job rates', body);
       }
     } else if (t.title === 'Night Routine') {
