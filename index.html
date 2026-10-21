@@ -612,6 +612,13 @@
     if ((day === 1 || day === 3) && !has) state.routines[day].push({ id: uid(), title: 'Monthly Routines', time: '', dur: 0 });
     else if (day !== 1 && day !== 3 && has) state.routines[day] = state.routines[day].filter(t => t.title !== 'Monthly Routines');
   }
+  // One-off weekly routine boxes: each lives on a single weekday and gets a start/end time when tapped.
+  const SIMPLE_ROUTINES = { 0: 'Church', 2: 'Check Emails', 4: 'Laundry', 5: 'Job Searching', 6: 'Book Next Week' };
+  const SIMPLE_TITLES = Object.values(SIMPLE_ROUTINES);
+  for (let day = 0; day < 7; day++) {
+    state.routines[day] = state.routines[day].filter(t => !SIMPLE_TITLES.includes(t.title) || t.title === SIMPLE_ROUTINES[day]);
+    if (SIMPLE_ROUTINES[day] && !state.routines[day].some(t => t.title === SIMPLE_ROUTINES[day])) state.routines[day].push({ id: uid(), title: SIMPLE_ROUTINES[day], time: '', dur: 0 });
+  }
   // Fixed display order for the highlighted routine boxes; anything else keeps its relative order after these.
   const ROUTINE_ORDER = ['Workout', 'Morning Routine', 'Work', 'Night Routine'];
   for (let day = 0; day < 7; day++) {
@@ -642,6 +649,7 @@
   let pendingScheduleDur = WORKOUT_DURATION_MIN;
 
   function startWorkoutScheduling() {
+    pendingRange = false;
     pendingScheduleTitle = 'Workout';
     pendingScheduleDur = WORKOUT_DURATION_MIN;
     highlightWorkoutPick = true;
@@ -651,6 +659,7 @@
   }
 
   function startMorningScheduling() {
+    pendingRange = false;
     pendingScheduleTitle = 'Morning Routine';
     pendingScheduleDur = MORNING_DURATION_MIN;
     highlightWorkoutPick = true;
@@ -660,6 +669,7 @@
   }
 
   function startNightScheduling() {
+    pendingRange = false;
     pendingScheduleTitle = 'Night Routine';
     pendingScheduleDur = NIGHT_DURATION_MIN;
     highlightWorkoutPick = true;
@@ -673,6 +683,20 @@
   const ACTIVE_JOBS = ['CarMax']; // jobs you can pick for new shifts
   let pendingWorkJob = null;
   let pendingMonthlyObj = null;
+  // Fixed lengths (minutes) for the weekly/monthly routine boxes. Anything not listed asks for a start AND end time.
+  const ROUTINE_DURS = { 'church': 120, 'check emails': 30, 'laundry': 150, 'job searching': 60, 'book next week': 60,
+    'grocery shop': 90, 'shop for chapo': 60, 'household shopping': 60, 'chapo bath': 60, 'car wash': 90, 'meal prep': 150 };
+  const routineDur = name => ROUTINE_DURS[String(name || '').trim().toLowerCase()] || 0;
+  let pendingRange = false; // simple weekly routine (Church, Laundry...) scheduled with a start/end time
+  function startSimpleScheduling(title) {
+    pendingScheduleTitle = title;
+    pendingScheduleDur = routineDur(title);
+    pendingRange = !pendingScheduleDur;
+    highlightWorkoutPick = true;
+    highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
+    switchTab('calendar');
+    renderCalendar();
+  }
 
   // Monthly Routines (Mon/Wed boxes): pick one of the monthly objectives, then a date, then start/end time.
   // Each monthly objective can be scheduled only once per calendar month.
@@ -680,6 +704,7 @@
     return Object.keys(state.tasks).some(d => d.startsWith(ym + '-') && (state.tasks[d] || []).some(t => t.monthlyObj && t.title === name));
   }
   function startMonthlyScheduling() {
+    pendingRange = false;
     document.getElementById('jobPickTitle').textContent = 'Which routine?';
     const row = document.getElementById('jobChipRow');
     row.innerHTML = '';
@@ -694,7 +719,7 @@
         pendingMonthlyObj = o.name;
         closeJobPickSheet();
         pendingScheduleTitle = o.name;
-        pendingScheduleDur = 0;
+        pendingScheduleDur = routineDur(o.name);
         highlightWorkoutPick = true;
         highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
         switchTab('calendar');
@@ -706,6 +731,7 @@
   }
 
   function startWorkScheduling() {
+    pendingRange = false;
     document.getElementById('jobPickTitle').textContent = 'Which job?';
     const row = document.getElementById('jobChipRow');
     row.innerHTML = '';
@@ -1004,7 +1030,7 @@
     document.getElementById('workoutTimeSheetTitle').textContent = 'Schedule ' + pendingScheduleTitle;
     const select = document.getElementById('workoutTimeInput');
     const endSelect = document.getElementById('workoutEndTimeInput');
-    const isWork = pendingScheduleTitle === 'Work' || !!pendingMonthlyObj;
+    const isWork = pendingScheduleTitle === 'Work' || (!!pendingMonthlyObj && !pendingScheduleDur) || pendingRange;
 
     if (isWork) {
       // Shift length varies, so Work gets a start AND end time instead of a fixed duration.
@@ -1050,6 +1076,7 @@
     pendingWorkoutDate = null;
     pendingWorkJob = null;
     pendingMonthlyObj = null;
+    pendingRange = false;
     renderCalendar();
   }
   function confirmWorkoutTime() {
@@ -1058,7 +1085,7 @@
 
     let dur = pendingScheduleDur;
     let extra = {};
-    if (pendingScheduleTitle === 'Work' || pendingMonthlyObj) {
+    if (pendingScheduleTitle === 'Work' || (pendingMonthlyObj && !pendingScheduleDur) || pendingRange) {
       const endTime = document.getElementById('workoutEndTimeInput').value;
       const [sh, sm] = time.split(':').map(Number);
       const [eh, em] = endTime.split(':').map(Number);
@@ -1075,9 +1102,13 @@
       if (clash) { alert('That overlaps something already scheduled that day.'); return; }
       if (pendingMonthlyObj && monthlyObjScheduled(pendingMonthlyObj, pendingWorkoutDate.slice(0, 7))) { alert(pendingMonthlyObj + ' is already scheduled this month.'); return; }
       const rate = JOB_RATES[pendingWorkJob] || 0;
-      extra = pendingMonthlyObj ? { monthlyObj: true } : { job: pendingWorkJob, rate, pay: Math.round(rate * dur / 60 * 100) / 100, overnight };
+      extra = pendingRange ? {} : pendingMonthlyObj ? { monthlyObj: true } : { job: pendingWorkJob, rate, pay: Math.round(rate * dur / 60 * 100) / 100, overnight };
     }
 
+    if (pendingMonthlyObj && pendingScheduleDur) {
+      if (monthlyObjScheduled(pendingMonthlyObj, pendingWorkoutDate.slice(0, 7))) { alert(pendingMonthlyObj + ' is already scheduled this month.'); return; }
+      extra = { monthlyObj: true };
+    }
     if (!state.tasks[pendingWorkoutDate]) state.tasks[pendingWorkoutDate] = [];
     state.tasks[pendingWorkoutDate].push({ id: uid(), title: pendingScheduleTitle, time, dur, done: false, ...extra });
     save();
@@ -1087,6 +1118,7 @@
     pendingWorkoutDate = null;
     pendingWorkJob = null;
     pendingMonthlyObj = null;
+    pendingRange = false;
     renderCalendar();
     const scheduledWeekday = highlightWorkoutDay;
     switchTab('schedule');
@@ -2324,7 +2356,11 @@
     if (t.title === 'Workout') item.classList.add('task-item-workout');
     if (t.title === 'Morning Routine') item.classList.add('task-item-morning');
     if (t.title === 'Night Routine') item.classList.add('task-item-night');
-    if (t.title === 'Monthly Routines') item.classList.add('task-item-monthly');
+    if (t.title === 'Monthly Routines' || (isRoutine && SIMPLE_TITLES.includes(t.title))) item.classList.add('task-item-monthly');
+    if (isRoutine && options.routineTemplate && SIMPLE_TITLES.includes(t.title)) {
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', (e) => { e.stopPropagation(); startSimpleScheduling(t.title); });
+    }
     if (t.title === 'Work') item.classList.add('task-item-work');
     if (isRoutine && options.routineTemplate && t.title === 'Workout') {
       item.style.cursor = 'pointer';
