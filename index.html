@@ -1619,9 +1619,10 @@
   }
 
   function save() {
-    const ser = () => JSON.stringify(state, (k, v) => k === '_edit' ? undefined : v);
+    // Workout photos live in IndexedDB (much bigger than localStorage) once migrated, so they stay out of cal_state.
+    const ser = () => JSON.stringify(state, (k, v) => (k === '_edit' || (k === 'exercisePhotos' && window._photosInIDB)) ? undefined : v);
     try { localStorage.setItem('cal_state', ser()); return; } catch (e) {}
-    if (!window._saveWarned) { window._saveWarned = true; alert('Phone storage is full, so this could not be saved. Remove a workout photo to free space.'); }
+    if (window._appReady && !window._saveWarned) { window._saveWarned = true; alert('Phone storage is full, so this could not be saved. Remove a workout photo to free space.'); }
   }
   function fmtDate(d) {
     // Local date components, not UTC — toISOString() shifts to the next
@@ -2625,12 +2626,12 @@
         canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
         const photoName = wsPendingPhotoName;
         state.exercisePhotos[photoName] = canvas.toDataURL('image/jpeg', 0.7);
-        try {
-          save();
-          wsRefreshPhotoSlot();
-        } catch (error) {
-          delete state.exercisePhotos[photoName];
-          alert('This photo could not be saved. Please choose a smaller image.');
+        const data = state.exercisePhotos[photoName];
+        const fail = () => { delete state.exercisePhotos[photoName]; alert('This photo could not be saved. Please choose a smaller image.'); };
+        if (window._photosInIDB) {
+          idbPutPhoto(photoName, data).then(() => { save(); wsRefreshPhotoSlot(); }).catch(fail);
+        } else {
+          try { save(); wsRefreshPhotoSlot(); } catch (error) { fail(); }
         }
       };
       image.src = reader.result;
@@ -2639,8 +2640,47 @@
     e.target.value = '';
   });
 
+  // ---- Workout photos: IndexedDB storage ----
+  let photoDb = null;
+  function openPhotoDB() {
+    return new Promise((res, rej) => {
+      if (photoDb) return res(photoDb);
+      const rq = indexedDB.open('cal_photos', 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore('photos');
+      rq.onsuccess = () => { photoDb = rq.result; res(photoDb); };
+      rq.onerror = () => rej(rq.error);
+    });
+  }
+  function idbPutPhoto(name, data) {
+    return openPhotoDB().then(db => new Promise((res, rej) => {
+      const tx = db.transaction('photos', 'readwrite');
+      tx.objectStore('photos').put(data, name);
+      tx.oncomplete = () => res();
+      tx.onerror = tx.onabort = () => rej(tx.error);
+    }));
+  }
+  function idbAllPhotos() {
+    return openPhotoDB().then(db => new Promise((res, rej) => {
+      const out = {};
+      const rq = db.transaction('photos').objectStore('photos').openCursor();
+      rq.onsuccess = () => { const c = rq.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); };
+      rq.onerror = () => rej(rq.error);
+    }));
+  }
+  (async function migratePhotos() {
+    try {
+      const stored = await idbAllPhotos();
+      for (const [k, v] of Object.entries(state.exercisePhotos)) { if (!(k in stored)) await idbPutPhoto(k, v); }
+      Object.keys(stored).forEach(k => { if (!state.exercisePhotos[k]) state.exercisePhotos[k] = stored[k]; });
+      window._photosInIDB = true;
+      save();
+      if (typeof wsRefreshPhotoSlot === 'function') { try { wsRefreshPhotoSlot(); } catch (e) {} }
+    } catch (e) { /* IndexedDB unavailable: photos stay in localStorage as before */ }
+  })();
+
   renderCalendar();
   renderNotes();
+  window._appReady = true;
 </script>
 </body>
 </html>
