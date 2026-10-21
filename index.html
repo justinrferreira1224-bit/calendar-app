@@ -405,6 +405,10 @@
     <span style="opacity:.7;">Bank balance</span>
     <span id="balanceVal" style="font-weight:800;color:#4caf50;">Connect bank</span>
   </div>
+  <div id="krakenBar" onclick="refreshKraken(true)" style="display:none;margin:0 18px 8px 18px;padding:8px 12px;border-radius:10px;background:#0b0b0b;border:1px solid #2a2a2a;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;">
+    <span style="opacity:.7;">Kraken</span>
+    <span id="krakenVal" style="font-weight:800;color:#4caf50;">…</span>
+  </div>
 
   <div class="tabs">
     <div class="tab" data-tab="schedule" onclick="switchTab('schedule')">Schedule</div>
@@ -1967,7 +1971,30 @@
     }
     bankBusy = '';
     renderBalanceBar();
+    refreshKraken();
     if (document.getElementById('bankBackdrop').classList.contains('open')) renderBankSheet();
+  }
+
+  // ---- Kraken (crypto) balance, read-only through the same server ----
+  function krakenCache() { try { return JSON.parse(localStorage.getItem('kraken_cache') || 'null'); } catch (e) { return null; } }
+  function renderKrakenBar() {
+    const bar = document.getElementById('krakenBar'), el = document.getElementById('krakenVal');
+    if (!bar || !el) return;
+    const c = krakenCache();
+    if (!bankPass() || !c) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    el.textContent = bankMoney(c.total);
+  }
+  let krakenBusy = false;
+  async function refreshKraken(force) {
+    if (!bankPass() || krakenBusy) return;
+    krakenBusy = true;
+    try {
+      const j = await bankFetch('/kraken/balance');
+      try { localStorage.setItem('kraken_cache', JSON.stringify(j)); } catch (e) {}
+    } catch (e) { /* not set up or asleep: keep last value */ }
+    krakenBusy = false;
+    renderKrakenBar();
   }
 
   function renderBankSheet() {
@@ -2051,6 +2078,7 @@
 
   window.addEventListener('load', () => {
     renderBalanceBar();
+    renderKrakenBar();
     refreshBalance();
     try {
       if (location.search.indexOf('oauth_state_id') !== -1) { const t = localStorage.getItem('bank_link_token'); if (t) openPlaid(t, location.href); }

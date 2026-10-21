@@ -1,5 +1,5 @@
 // Small read-only bank server for the calendar app. Keys live ONLY in Render env vars.
-// Env: PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV (production|sandbox), APP_PASSCODE,
+// Env (Kraken: KRAKEN_API_KEY, KRAKEN_API_SECRET): PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV (production|sandbox), APP_PASSCODE,
 //      PLAID_ACCESS_TOKEN (set after you link your bank once), ALLOWED_ORIGIN (optional)
 const express = require('express');
 const cors = require('cors');
@@ -82,6 +82,32 @@ app.get('/deposits', async (req, res) => {
     const deposits = all.filter(t => t.amount < 0 && !t.pending).map(t => ({ date: t.date, name: t.name, amount: -t.amount }));
     res.json({ total: deposits.reduce((s, d) => s + d.amount, 0), deposits });
   } catch (e) { fail(res, e); }
+});
+
+// ---- Kraken (read-only, "Query funds" key). Env: KRAKEN_API_KEY, KRAKEN_API_SECRET ----
+const crypto = require('crypto');
+let lastNonce = 0;
+async function krakenPrivate(path, params = {}) {
+  const { KRAKEN_API_KEY, KRAKEN_API_SECRET } = process.env;
+  if (!KRAKEN_API_KEY || !KRAKEN_API_SECRET) { const e = new Error('kraken_not_configured'); e.code = 'kraken_not_configured'; throw e; }
+  lastNonce = Math.max(Date.now() * 1000, lastNonce + 1);
+  const body = new URLSearchParams({ nonce: String(lastNonce), ...params }).toString();
+  const sha = crypto.createHash('sha256').update(String(lastNonce) + body).digest();
+  const sig = crypto.createHmac('sha512', Buffer.from(KRAKEN_API_SECRET, 'base64')).update(Buffer.concat([Buffer.from(path), sha])).digest('base64');
+  const r = await fetch('https://api.kraken.com' + path, { method: 'POST', headers: { 'API-Key': KRAKEN_API_KEY, 'API-Sign': sig, 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+  const j = await r.json();
+  if (j.error && j.error.length) { const e = new Error(j.error.join(',')); e.code = j.error[0]; throw e; }
+  return j.result;
+}
+app.get('/kraken/balance', async (req, res) => {
+  try {
+    const [bal, tb] = await Promise.all([krakenPrivate('/0/private/Balance'), krakenPrivate('/0/private/TradeBalance', { asset: 'ZUSD' })]);
+    const holdings = Object.entries(bal).map(([asset, amt]) => ({ asset, amount: Number(amt) })).filter(h => h.amount > 0);
+    res.json({ total: Number(tb.eb) || 0, holdings, asOf: new Date().toISOString() });
+  } catch (e) {
+    console.error('kraken', e.code || e.message);
+    res.status(e.code === 'kraken_not_configured' ? 409 : 500).json({ error: e.code || 'kraken_error' });
+  }
 });
 
 function fail(res, e) {
