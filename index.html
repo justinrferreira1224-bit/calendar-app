@@ -2410,7 +2410,7 @@
   }
 
   // ---- Info popups: tap the "i" on Workout/Morning/Work/Night cards to see the full plan ----
-  const INFO_TITLES = ['Workout', 'Morning Routine', 'Work', 'Night Routine', 'Monthly Routines'];
+  const INFO_TITLES = ['Workout', 'Morning Routine', 'Work', 'Night Routine', 'Monthly Routines', ...SIMPLE_TITLES];
   const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   function fmtDur(min) {
@@ -2432,30 +2432,30 @@
     if (t.title === 'Workout') {
       const plan = WORKOUT_PLANS[weekday];
       if (!plan) { openInfoSheet('Workout', `<div class="empty-state">No workout plan set for ${dayName}.</div>`); return; }
-      let body = `<div style="font-weight:700;color:#fff;margin-bottom:4px;">Warm-up</div>${plan.stretch.map(s => `• ${s}`).join('<br>')}`;
+      let body = `<div style="margin-bottom:10px;">• Duration: ${fmtDur(WORKOUT_DURATION_MIN)}</div><div style="font-weight:700;color:#fff;margin-bottom:4px;">Warm-up</div>${plan.stretch.map(s => `• ${s}`).join('<br>')}`;
       if (plan.exercises) {
         body += `<div style="font-weight:700;color:#fff;margin:12px 0 4px 0;">Exercises</div>` +
           plan.exercises.map(ex => `• ${ex.name} — ${ex.sets}x${ex.reps} (${ex.muscle})`).join('<br>');
       } else if (plan.cardio) {
         body += `<div style="font-weight:700;color:#fff;margin:12px 0 4px 0;">Cardio</div>• ${plan.cardio.name} — ${plan.cardio.detail}`;
       }
-      openInfoSheet(`Workout — ${dayName} (${fmtDur(WORKOUT_DURATION_MIN)})`, body);
+      openInfoSheet(`Workout — ${dayName}`, body);
     } else if (t.title === 'Morning Routine') {
       const steps = MORNING_STEPS.filter(s => !s.days || s.days.includes(weekday));
       const totalMin = steps.reduce((sum, s) => sum + s.sec / 60, 0);
-      const body = steps.map(s => `• ${s.name} — ${Math.round(s.sec / 60)}m`).join('<br>');
-      openInfoSheet(`Morning Routine — ${dayName} (${fmtDur(totalMin)})`, body);
+      const body = `<div style="margin-bottom:10px;">• Duration: ${fmtDur(totalMin)}</div>` + steps.map(s => `• ${s.name} — ${Math.round(s.sec / 60)}m`).join('<br>');
+      openInfoSheet(`Morning Routine — ${dayName}`, body);
     } else if (t.title === 'Work') {
       if (t.job) {
         const rate = t.rate || JOB_RATES[t.job] || 0;
         const dur = t.clockedOut ? t.actualDur : t.dur;
-        let body = `• Job: ${t.job}<br>• Rate: $${rate}/hr`;
+        let body = `• Job: ${t.job}${dur ? `<br>• Duration: ${fmtDur(dur)}` : ''}<br>• Rate: $${rate}/hr`;
         if (t.clockedOut) {
           body += `<br>• Clocked: ${fmtTime(t.clockIn)} &ndash; ${fmtTime(t.clockOut)}<br>• Actual: ${(t.actualDur / 60).toFixed(1)}h &middot; $${t.actualPay.toFixed(2)}`;
         } else if (t.time) {
           body += `<br>• Scheduled: ${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime(timeToMinutes(t.time) + t.dur))}<br>• Est. pay: $${t.pay.toFixed(2)}`;
         }
-        openInfoSheet(dur ? `Work (${fmtDur(dur)})` : 'Work', body);
+        openInfoSheet('Work', body);
       } else {
         const body = Object.entries(JOB_RATES).filter(([job]) => ACTIVE_JOBS.includes(job)).map(([job, rate]) => `• ${job} — $${rate}/hr`).join('<br>');
         openInfoSheet('Work — job rates', body);
@@ -2463,15 +2463,18 @@
     } else if (t.title === 'Night Routine') {
       const steps = NIGHT_STEPS.filter(s => !s.days || s.days.includes(weekday));
       const totalMin = steps.reduce((sum, s) => sum + s.sec / 60, 0);
-      const body = steps.map(s => `• ${s.name} — ${Math.round(s.sec / 60)}m`).join('<br>');
-      openInfoSheet(`Night Routine — ${dayName} (${fmtDur(totalMin)})`, body);
+      const body = `<div style="margin-bottom:10px;">• Duration: ${fmtDur(totalMin)}</div>` + steps.map(s => `• ${s.name} — ${Math.round(s.sec / 60)}m`).join('<br>');
+      openInfoSheet(`Night Routine — ${dayName}`, body);
     } else if (t.title === 'Monthly Routines') {
       showMonthlyInfo();
+    } else if (SIMPLE_TITLES.includes(t.title)) {
+      const d = routineDur(t.title);
+      openInfoSheet(t.title, `• Day: ${dayName}<br>• Duration: ${d ? fmtDur(d) : 'you pick start and end'}`);
     }
   }
   function showMonthlyInfo() {
     const objs = state.monthlyObjs || [];
-    const body = objs.length ? objs.map(o => `• ${o.name}`).join('<br>') : '<div class="empty-state">No monthly routines yet.</div>';
+    const body = objs.length ? objs.map(o => `• ${o.name}${routineDur(o.name) ? ' — ' + fmtDur(routineDur(o.name)) : ''}`).join('<br>') : '<div class="empty-state">No monthly routines yet.</div>';
     openInfoSheet(`Monthly Routines (${objs.length}/8)`, body);
   }
 
