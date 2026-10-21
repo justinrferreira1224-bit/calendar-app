@@ -401,13 +401,19 @@
     <div class="nav-arrows"><span onclick="shiftMonth(-1)">&larr;</span><span onclick="shiftMonth(1)">&rarr;</span></div>
   </div>
 
-  <div id="balanceBar" onclick="openBankSheet()" style="margin:0 18px 8px 18px;padding:8px 12px;border-radius:10px;background:#0b0b0b;border:1px solid #2a2a2a;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;">
-    <span style="opacity:.7;">Bank balance</span>
-    <span id="balanceVal" style="font-weight:800;color:#4caf50;">Connect bank</span>
-  </div>
-  <div id="krakenBar" onclick="refreshKraken(true)" style="display:none;margin:0 18px 8px 18px;padding:8px 12px;border-radius:10px;background:#0b0b0b;border:1px solid #2a2a2a;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;">
-    <span style="opacity:.7;">Kraken</span>
-    <span id="krakenVal" style="font-weight:800;color:#4caf50;">…</span>
+  <div id="acctRow" style="display:flex;gap:8px;margin:0 18px 8px 18px;">
+    <div id="balanceBar" onclick="openBankSheet()" style="flex:1;margin:0;padding:8px 6px;border-radius:10px;background:#0b0b0b;border:1px solid #2a2a2a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;min-width:0;">
+      <span style="opacity:.7;font-size:11px;">Chase</span>
+      <span id="balanceVal" style="font-weight:800;font-size:14px;color:#4caf50;white-space:nowrap;">Connect bank</span>
+    </div>
+    <div id="krakenBar" onclick="refreshKraken(true)" style="flex:1;margin:0;padding:8px 6px;border-radius:10px;background:#0b0b0b;border:1px solid #2a2a2a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;min-width:0;">
+      <span style="opacity:.7;font-size:11px;">Kraken</span>
+      <span id="krakenVal" style="font-weight:800;font-size:14px;color:#4caf50;white-space:nowrap;">—</span>
+    </div>
+    <div id="rhBar" onclick="editRobinhood()" style="flex:1;margin:0;padding:8px 6px;border-radius:10px;background:#0b0b0b;border:1px solid #2a2a2a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;min-width:0;">
+      <span style="opacity:.7;font-size:11px;">Robinhood</span>
+      <span id="rhVal" style="font-weight:800;font-size:14px;color:#4caf50;white-space:nowrap;">Tap to set</span>
+    </div>
   </div>
 
   <div class="tabs">
@@ -1981,9 +1987,22 @@
     const bar = document.getElementById('krakenBar'), el = document.getElementById('krakenVal');
     if (!bar || !el) return;
     const c = krakenCache();
-    if (!bankPass() || !c) { bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
-    el.textContent = bankMoney(c.total);
+    el.textContent = (bankPass() && c) ? bankMoney(c.total) : '—';
+  }
+  // Robinhood has no safe public connection yet, so for now you type the number in (tap the box).
+  function renderRobinhood() {
+    const el = document.getElementById('rhVal'); if (!el) return;
+    const v = state.robinhood;
+    el.textContent = (v === undefined || v === null || v === '') ? 'Tap to set' : bankMoney(Number(v));
+    el.style.color = Number(v) < 0 ? '#ff5252' : '#4caf50';
+  }
+  function editRobinhood() {
+    const cur = state.robinhood;
+    const v = prompt('Robinhood balance ($)', (cur === undefined || cur === null) ? '' : cur);
+    if (v === null) return;
+    const n = parseFloat(String(v).replace(/[$,\s]/g, ''));
+    state.robinhood = isNaN(n) ? '' : n;
+    save(); renderRobinhood();
   }
   let krakenBusy = false;
   async function refreshKraken(force) {
@@ -2079,6 +2098,7 @@
   window.addEventListener('load', () => {
     renderBalanceBar();
     renderKrakenBar();
+    renderRobinhood();
     refreshBalance();
     try {
       if (location.search.indexOf('oauth_state_id') !== -1) { const t = localStorage.getItem('bank_link_token'); if (t) openPlaid(t, location.href); }
