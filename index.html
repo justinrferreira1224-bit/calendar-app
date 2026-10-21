@@ -685,7 +685,7 @@
   let pendingMonthlyObj = null;
   // Fixed lengths (minutes) for the weekly/monthly routine boxes. Anything not listed asks for a start AND end time.
   const ROUTINE_DURS = { 'church': 120, 'check emails': 30, 'laundry': 150, 'job searching': 60, 'book next week': 60,
-    'grocery shop': 90, 'shop for chapo': 60, 'household shopping': 60, 'chapo bath': 60, 'car wash': 90, 'meal prep': 150 };
+    'grocery shop': 90, 'shop for chapo': 60, 'household shopping': 60, 'chapo bath': 60, 'car wash': 90, 'clean house': 90, 'meal prep': 150 };
   const routineDur = name => ROUTINE_DURS[String(name || '').trim().toLowerCase()] || 0;
   let pendingRange = false; // simple weekly routine (Church, Laundry...) scheduled with a start/end time
   function startSimpleScheduling(title) {
