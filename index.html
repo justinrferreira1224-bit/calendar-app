@@ -2469,7 +2469,7 @@
       showMonthlyInfo();
     } else if (SIMPLE_TITLES.includes(t.title)) {
       const d = routineDur(t.title);
-      openInfoSheet(t.title, `• Day: ${dayName}<br>• Duration: ${d ? fmtDur(d) : 'you pick start and end'}`);
+      openInfoSheet(`${t.title} — ${dayName}`, `<div style="margin-bottom:10px;">• Duration: ${d ? fmtDur(d) : 'you pick start and end'}</div>• Every ${dayName}`);
     }
   }
   function showMonthlyInfo() {
