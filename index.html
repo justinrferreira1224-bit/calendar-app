@@ -985,7 +985,6 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <div style="${tile}" onclick="openBankSheet()"><div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Chase</div>${money(bankPass() && cb ? cb.total : null, bankPass() ? (bankBusy ? 'loading…' : 'Tap to link') : 'Connect')}<div style="font-size:9px;color:#fff;opacity:.55;">${cb ? 'live' : ''}</div></div>
           <div style="${tile}" onclick="refreshKraken(true)"><div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Kraken</div>${money(bankPass() && kb ? kb.total : null, '—')}<div style="font-size:9px;color:#fff;opacity:.55;">${kb ? 'live' : ''}</div></div>
-          ${[['robinhood', 'Robinhood'], ['prizepicks', 'PrizePicks'], ['bovada', 'Bovada']].map(([k, label]) => `<div style="${tile}" onclick="editManual('${k}', '${label}')"><div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">${label}</div>${money(state[k], 'Tap to set')}<div style="font-size:9px;color:#fff;opacity:.55;">${(state[k] === undefined || state[k] === '' || state[k] === null) ? '' : 'manual'}</div></div>`).join('')}
         </div>`;
     }
     html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Income — ${monthName}</h2></div>
@@ -1986,29 +1985,6 @@
     const c = krakenCache();
     el.textContent = (bankPass() && c) ? bankMoney(c.total) : '—';
   }
-  // Robinhood has no safe public connection yet, so for now you type the number in (tap the box).
-  function renderRobinhood() {
-    const el = document.getElementById('rhVal'); if (!el) return;
-    const v = state.robinhood;
-    el.textContent = (v === undefined || v === null || v === '') ? 'Tap to set' : bankMoney(Number(v));
-    el.style.color = Number(v) < 0 ? '#ff5252' : '#4caf50';
-  }
-  function editManual(key, label) {
-    const cur = state[key];
-    const v = prompt(label + ' balance ($)', (cur === undefined || cur === null) ? '' : cur);
-    if (v === null) return;
-    const n = parseFloat(String(v).replace(/[$,\s]/g, ''));
-    state[key] = isNaN(n) ? '' : n;
-    save(); refreshAcctTiles();
-  }
-  function editRobinhood() {
-    const cur = state.robinhood;
-    const v = prompt('Robinhood balance ($)', (cur === undefined || cur === null) ? '' : cur);
-    if (v === null) return;
-    const n = parseFloat(String(v).replace(/[$,\s]/g, ''));
-    state.robinhood = isNaN(n) ? '' : n;
-    save(); renderRobinhood(); refreshAcctTiles();
-  }
   function refreshAcctTiles() { const v = document.getElementById('view-report'); if (v && v.classList.contains('active')) renderReport(); }
   let krakenBusy = false;
   async function refreshKraken(force) {
@@ -2105,7 +2081,6 @@
   window.addEventListener('load', () => {
     renderBalanceBar();
     renderKrakenBar();
-    renderRobinhood();
     refreshBalance();
     try {
       if (location.search.indexOf('oauth_state_id') !== -1) { const t = localStorage.getItem('bank_link_token'); if (t) openPlaid(t, location.href); }
