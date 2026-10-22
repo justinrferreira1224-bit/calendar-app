@@ -982,10 +982,10 @@
       const money = (v, none) => (v === undefined || v === null || v === '' || (typeof v === 'number' && isNaN(v))) ? `<div style="font-size:12px;font-weight:700;color:#fff;opacity:.6;">${none}</div>` : `<div style="color:${Number(v) < 0 ? '#ff5252' : '#4caf50'};font-size:17px;font-weight:800;white-space:nowrap;">${bankMoney(Number(v))}</div>`;
       const cb = bankCache(), kb = krakenCache();
       html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Accounts</h2></div>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <div style="${tile}" onclick="openBankSheet()"><div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Chase</div>${money(bankPass() && cb ? cb.total : null, bankPass() ? (bankBusy ? 'loading…' : 'Tap to link') : 'Connect')}<div style="font-size:9px;color:#fff;opacity:.55;">${cb ? 'live' : ''}</div></div>
           <div style="${tile}" onclick="refreshKraken(true)"><div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Kraken</div>${money(bankPass() && kb ? kb.total : null, '—')}<div style="font-size:9px;color:#fff;opacity:.55;">${kb ? 'live' : ''}</div></div>
-          <div style="${tile}" onclick="editRobinhood()"><div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Robinhood</div>${money(state.robinhood, 'Tap to set')}<div style="font-size:9px;color:#fff;opacity:.55;">${(state.robinhood === undefined || state.robinhood === '' || state.robinhood === null) ? '' : 'manual'}</div></div>
+          ${[['robinhood', 'Robinhood'], ['prizepicks', 'PrizePicks'], ['bovada', 'Bovada']].map(([k, label]) => `<div style="${tile}" onclick="editManual('${k}', '${label}')"><div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">${label}</div>${money(state[k], 'Tap to set')}<div style="font-size:9px;color:#fff;opacity:.55;">${(state[k] === undefined || state[k] === '' || state[k] === null) ? '' : 'manual'}</div></div>`).join('')}
         </div>`;
     }
     html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Income — ${monthName}</h2></div>
@@ -1992,6 +1992,14 @@
     const v = state.robinhood;
     el.textContent = (v === undefined || v === null || v === '') ? 'Tap to set' : bankMoney(Number(v));
     el.style.color = Number(v) < 0 ? '#ff5252' : '#4caf50';
+  }
+  function editManual(key, label) {
+    const cur = state[key];
+    const v = prompt(label + ' balance ($)', (cur === undefined || cur === null) ? '' : cur);
+    if (v === null) return;
+    const n = parseFloat(String(v).replace(/[$,\s]/g, ''));
+    state[key] = isNaN(n) ? '' : n;
+    save(); refreshAcctTiles();
   }
   function editRobinhood() {
     const cur = state.robinhood;
