@@ -1872,14 +1872,17 @@
     }
     info.innerHTML = '';
     const payRow = selDay ? (hasBank ? depOn(selDay).map(x => '<div style="color:#4caf50;font-weight:700;margin-bottom:8px;display:flex;gap:8px;"><span style="flex:1;min-width:0;">' + String(x.name).replace(/</g, '&lt;') + '</span><span>+' + fmtMoney(x.amount) + '</span></div>').join('') : (isPay(selDay) ? '<div style="color:#4caf50;font-weight:700;margin-bottom:8px;">Payday +$' + (payIn(selDay) || '') + '</div>' : '')) : '';
-    if (!selDay) {
+    {
       const mk = vy + '-' + String(vm + 1).padStart(2, '0');
       const mInc = (state.incomeMonth || {})[mk];
       const totalInWeekly = Array.from({ length: dim }, (_, i) => i + 1).filter(isPay).reduce((a, d) => a + (Number(String(payIn(d)).replace(/,/g, '')) || 0), 0);
       const bIn = bankIncomeFor(mk);
       const totalIn = bIn !== null ? bIn : ((mInc && mInc.paid !== undefined && mInc.paid !== '') ? Number(mInc.paid) : totalInWeekly);
-      info.innerHTML = '<div style="font-weight:700;">Total in this month: <span style="color:#4caf50;">+' + fmtMoney(totalIn) + '</span></div><div style="font-weight:700;margin-top:4px;">Total out this month: <span style="color:#ff5252;">' + fmtOut(Array.from({ length: dim }, (_, i) => sum(billsOn(vy, vm, i + 1))).reduce((a, b) => a + b, 0)) + '</span></div>';
-      return;
+      const tot = document.createElement('div');
+      tot.style.cssText = 'margin-bottom:' + (selDay ? '16px' : '0') + ';';
+      tot.innerHTML = '<div style="font-weight:700;">Total in this month: <span style="color:#4caf50;">+' + fmtMoney(totalIn) + '</span></div><div style="font-weight:700;margin-top:4px;">Total out this month: <span style="color:#ff5252;">' + fmtOut(Array.from({ length: dim }, (_, i) => sum(billsOn(vy, vm, i + 1))).reduce((a, b) => a + b, 0)) + '</span></div>';
+      info.appendChild(tot);
+      if (!selDay) return;
     }
     const bills = billsOn(vy, vm, selDay);
     const head = document.createElement('div');
