@@ -1107,12 +1107,12 @@
       if (clash) { alert('That overlaps something already scheduled that day.'); return; }
       if (pendingMonthlyObj && monthlyObjScheduled(pendingMonthlyObj, pendingWorkoutDate.slice(0, 7))) { alert(pendingMonthlyObj + ' is already scheduled this month.'); return; }
       const rate = JOB_RATES[pendingWorkJob] || 0;
-      extra = pendingRange ? {} : pendingMonthlyObj ? { monthlyObj: true } : { job: pendingWorkJob, rate, pay: Math.round(rate * dur / 60 * 100) / 100, overnight };
+      extra = pendingRange ? {} : pendingMonthlyObj ? { monthlyObj: true, cost: MONTHLY_COST[pendingMonthlyObj.toLowerCase()] || 0 } : { job: pendingWorkJob, rate, pay: Math.round(rate * dur / 60 * 100) / 100, overnight };
     }
 
     if (pendingMonthlyObj && pendingScheduleDur) {
       if (monthlyObjScheduled(pendingMonthlyObj, pendingWorkoutDate.slice(0, 7))) { alert(pendingMonthlyObj + ' is already scheduled this month.'); return; }
-      extra = { monthlyObj: true };
+      extra = { monthlyObj: true, cost: MONTHLY_COST[pendingMonthlyObj.toLowerCase()] || 0 };
     }
     if (!state.tasks[pendingWorkoutDate]) state.tasks[pendingWorkoutDate] = [];
     state.tasks[pendingWorkoutDate].push({ id: uid(), title: pendingScheduleTitle, time, dur, done: false, ...extra });
@@ -1664,7 +1664,6 @@
   const MONTHS_TO_SHOW = 4;
 
   function renderCalendar() {
-    try { ensureAutoMonthly(viewDate.getFullYear(), viewDate.getMonth()); } catch (e) {}
     const monthLabel = document.getElementById('monthLabel');
     if (typeof renderMonthlyGrid === 'function' && document.getElementById('monthlyList')) { renderMonthlyGrid(); renderMonthlyObjs(); }
     monthLabel.innerHTML = `<span class="title-month">${viewDate.toLocaleString('default', { month: 'long' })}</span> <span class="title-year">${viewDate.getFullYear()}</span>`;
@@ -1821,33 +1820,16 @@
   ];
   if (!Array.isArray(state.bills)) { state.bills = DEFAULT_BILLS.map(b => ({ ...b })); try { save(); } catch (e) {} }
   if (!state.bills.some(b => b.weekday === 3 && b.name === 'Gas')) { state.bills.push({ weekday: 3, name: 'Gas', amt: 100 }); try { save(); } catch (e) {} }
-  const billsOn = (y, m, d) => state.bills.filter(b => b.nth ? (new Date(y, m, d).getDay() === b.weekday && Math.ceil(d / 7) === b.nth) : (b.day === d || (b.weekday !== undefined && new Date(y, m, d).getDay() === b.weekday)));
-  const AUTO_MONTHLY = [
-    { name: 'Grocery shop', weekday: 1, nth: 1, dur: 90, time: '10:00', amt: 150 },
-    { name: 'Shop for Chapo', weekday: 3, nth: 1, dur: 60, time: '10:00', amt: 150 }
-  ];
-  AUTO_MONTHLY.forEach(a => {
-    if (!state.bills.some(b => b.nth && b.name === a.name)) state.bills.push({ weekday: a.weekday, nth: a.nth, name: a.name, amt: a.amt });
-  });
-  state.autoMonthlyDone = state.autoMonthlyDone || {};
-  function ensureAutoMonthly(y, m) {
-    let changed = false;
-    Object.keys(state.tasks).forEach(d => (state.tasks[d] || []).forEach(t => {
-      if (t.monthlyObj && !t.auto && t.time === '10:00' && AUTO_MONTHLY.some(a => a.name === t.title && a.dur === t.dur)) { t.time = ''; t.dur = 0; t.auto = true; changed = true; }
-    }));
-    AUTO_MONTHLY.forEach(a => {
-      const ym = y + '-' + String(m + 1).padStart(2, '0');
-      const k = ym + '|' + a.name;
-      if (state.autoMonthlyDone[k]) return;
-      const day = 1 + ((a.weekday - new Date(y, m, 1).getDay() + 7) % 7);
-      const ds = ym + '-' + String(day).padStart(2, '0');
-      if (!state.tasks[ds]) state.tasks[ds] = [];
-      state.tasks[ds].push({ id: uid(), title: a.name, time: '', dur: 0, done: false, monthlyObj: true, auto: true });
-      state.autoMonthlyDone[k] = true; changed = true;
-    });
-    if (changed) save();
-  }
-  try { save(); } catch (e) {}
+  // cleanup of the earlier auto-assign experiment
+  state.bills = state.bills.filter(b => !b.nth);
+  Object.keys(state.tasks).forEach(d => { if ((state.tasks[d] || []).some(t => t.auto)) state.tasks[d] = state.tasks[d].filter(t => !t.auto); });
+  delete state.autoMonthlyDone;
+  const MONTHLY_COST = { 'grocery shop': 150, 'shop for chapo': 150 };
+  const billsOn = (y, m, d) => {
+    const ds = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const fromTasks = (state.tasks[ds] || []).filter(t => t.cost).map(t => ({ name: t.title, amt: t.cost, _task: true }));
+    return state.bills.filter(b => b.day === d || (b.weekday !== undefined && new Date(y, m, d).getDay() === b.weekday)).concat(fromTasks);
+  };
   const fmtMoney = n => '$' + (Number(n) || 0).toLocaleString();
   const fmtOut = n => '-' + fmtMoney(n);
   let billSelDay = null;
@@ -1927,7 +1909,11 @@
     bills.forEach(b => {
       const row = document.createElement('div'); row.style.cssText = ROW;
       const act = document.createElement('span'); act.style.cssText = ACT;
-      if (b._edit) {
+      if (b._task) {
+        const l = document.createElement('span'); l.textContent = b.name; l.style.cssText = NAME;
+        const amt = document.createElement('span'); amt.textContent = fmtOut(b.amt); amt.style.cssText = AMT + 'color:#ff5252;';
+        row.append(l, amt, act);
+      } else if (b._edit) {
         const n = document.createElement('input'); n.value = b.name; n.style.cssText = edit + NAME;
         const m = document.createElement('input'); m.value = b.amt; m.type = 'number'; m.inputMode = 'decimal'; m.style.cssText = edit + AMT;
         const ok = icon('✓', 'color:#4caf50;font-weight:700;');
@@ -2127,7 +2113,6 @@
   ['Car wash', 'Meal prep'].forEach(n => {
     if (state.monthlyObjs.length < 8 && !state.monthlyObjs.some(o => o.name.toLowerCase() === n.toLowerCase())) state.monthlyObjs.push({ id: uid(), name: n });
   });
-  state.monthlyObjs = (state.monthlyObjs || []).filter(o => !AUTO_MONTHLY.some(a => a.name.toLowerCase() === o.name.toLowerCase()));
   try { save(); } catch (e) {}
   state.monthlyDone = state.monthlyDone || {};
   let objEditId = null;
