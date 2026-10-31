@@ -110,14 +110,13 @@
   .task-item-night .task-meta { text-align: center; }
 
   .swipe-content.task-item-commute {
-    background: #d9631e;
+    background: #000;
     border: 1.5px solid #fff;
-    box-shadow: 0 4px 16px rgba(217,99,30,0.4);
   }
   .task-item-commute .task-title { font-size: 15px; font-weight: 700; color: #fff; text-align: center; }
   .task-item-commute.task-item { padding: 11px 14px; justify-content: center; }
   .task-item-commute .task-check { display: none; }
-  .task-item-commute .task-meta { text-align: center; color: rgba(255,255,255,0.85); }
+  .task-item-commute .task-meta { display: none; }
   .swipe-content.task-item-work {
     background: #1a9e5c;
     border: 1.5px solid #fff;
@@ -2641,8 +2640,6 @@
     if (t.title === 'Work') item.classList.add('task-item-work');
     if (t.commute) {
       item.classList.add('task-item-commute');
-      const mt = item.querySelector('.task-meta');
-      if (mt && t.time) mt.innerHTML = `${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime(timeToMinutes(t.time) + (Number(t.dur) || 0)))} &middot; ${t.dur}m`;
     }
     if (isRoutine && options.routineTemplate && t.title === 'Workout') {
       item.style.cursor = 'pointer';
