@@ -2630,7 +2630,7 @@
       </div>
     `;
     if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
-    const monthlyAllDone = () => { const ym = planWeekStart().slice(0, 7); const objs = state.monthlyObjs || []; return objs.length > 0 && objs.every(o => monthlyObjScheduled(o.name, ym)); };
+    const monthlyAllDone = () => { const ym = viewDate.getFullYear() + '-' + String(viewDate.getMonth() + 1).padStart(2, '0'); const objs = state.monthlyObjs || []; return objs.length > 0 && objs.every(o => monthlyObjScheduled(o.name, ym)); };
     if (isRoutine && options.routineTemplate && t.title === 'Monthly Routines' && monthlyAllDone()) {
       item.classList.add('task-greyed');
       item.style.pointerEvents = 'none';
