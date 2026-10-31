@@ -2638,6 +2638,12 @@
       item.addEventListener('click', (e) => { e.stopPropagation(); startSimpleScheduling(t.title); });
     }
     if (t.title === 'Work') item.classList.add('task-item-work');
+    if (!isRoutine && !passive && (SIMPLE_TITLES.includes(t.title) || t.monthlyObj)) {
+      // Scheduled weekly/monthly routine items (Church, Laundry, Grocery shop...) use the same black card; tap to mark done.
+      item.classList.add('task-item-monthly');
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', () => toggleDone(t));
+    }
     if (t.commute) {
       item.classList.add('task-item-commute');
     }
