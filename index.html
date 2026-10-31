@@ -1626,6 +1626,7 @@
   function save() {
     // Workout photos live in IndexedDB (much bigger than localStorage) once migrated, so they stay out of cal_state.
     const ser = () => JSON.stringify(state, (k, v) => (k === '_edit' || (k === 'exercisePhotos' && window._photosInIDB)) ? undefined : v);
+    if (window._appReady) cloudSaveSoon();
     try { localStorage.setItem('cal_state', ser()); return; } catch (e) {}
     if (window._appReady && !window._saveWarned) { window._saveWarned = true; alert('Phone storage is full, so this could not be saved. Remove a workout photo to free space.'); }
   }
@@ -1967,6 +1968,62 @@
     } finally { clearTimeout(timer); }
   }
 
+  // ---- Cloud sync: the server keeps the one shared copy, so phone and laptop show the same calendar.
+  // Workout photos stay on each device (too big to sync). The local copy is still saved first, so the app works offline.
+  function syncPayload() { return JSON.stringify(state, (k, v) => (k === '_edit' || k === 'exercisePhotos') ? undefined : v); }
+  function syncHash(str) { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0; return String(h); }
+  function syncGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function syncSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function syncDirty() { return syncHash(syncPayload()) !== syncGet('cal_sync_hash'); }
+
+  function adoptCloudState(data, version) {
+    const local = syncPayload();
+    if (syncDirty() && syncGet('cal_sync_ver')) syncSet('cal_state_backup', local); // both sides changed: keep this device's copy just in case
+    const photos = state.exercisePhotos;
+    state = data;
+    state.exercisePhotos = photos || {};
+    try {
+      localStorage.setItem('cal_state', JSON.stringify(state, (k, v) => (k === '_edit' || (k === 'exercisePhotos' && window._photosInIDB)) ? undefined : v));
+      localStorage.setItem('cal_sync_ver', String(version));
+      localStorage.setItem('cal_sync_hash', syncHash(syncPayload()));
+    } catch (e) { renderCalendar(); renderNotes(); return; } // storage full: show the new data now, retry the sync next time
+    location.reload(); // simplest way to redraw every tab from the new data
+  }
+
+  let cloudBusy = false, cloudAgain = false, cloudTimer = null;
+  function cloudSaveSoon() {
+    if (!bankPass()) return;
+    clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(cloudPush, 1500);
+  }
+  async function cloudPush() {
+    if (!bankPass() || !syncDirty()) return;
+    if (cloudBusy) { cloudAgain = true; return; }
+    cloudBusy = true;
+    const body = syncPayload();
+    try {
+      const j = await bankFetch('/state', { method: 'PUT', body: '{"base":' + (Number(syncGet('cal_sync_ver')) || 0) + ',"data":' + body + '}' });
+      syncSet('cal_sync_ver', String(j.version));
+      syncSet('cal_sync_hash', syncHash(body));
+    } catch (e) {
+      if (e.code === 'conflict') { const cur = await bankFetch('/state'); if (cur.data) return adoptCloudState(cur.data, cur.version); }
+    } finally {
+      cloudBusy = false;
+      if (cloudAgain) { cloudAgain = false; cloudPush(); }
+    }
+  }
+  async function cloudPull() {
+    if (!bankPass() || cloudBusy) return;
+    try {
+      const j = await bankFetch('/state');
+      const known = syncGet('cal_sync_ver');
+      if (!j.data) return cloudPush(); // first device to sync uploads its copy
+      if (String(j.version) === known) return cloudPush(); // nothing new on the server; send any local changes
+      adoptCloudState(j.data, j.version);
+    } catch (e) { /* offline, wrong passcode or server asleep: keep using the local copy */ }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') cloudPull(); });
+
   function renderBalanceBar() {
     const el = document.getElementById('balanceVal');
     if (!el) return;
@@ -2027,6 +2084,7 @@
   function bankSavePass() {
     try { localStorage.setItem('bank_pass', document.getElementById('bankPass').value.trim()); } catch (e) {}
     refreshBalance();
+    cloudPull();
   }
 
   function loadPlaidScript() {
@@ -2731,6 +2789,7 @@
   renderCalendar();
   renderNotes();
   window._appReady = true;
+  cloudPull();
 </script>
 </body>
 </html>

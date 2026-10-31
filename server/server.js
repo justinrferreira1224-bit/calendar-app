@@ -1,9 +1,11 @@
 // Small read-only bank server for the calendar app. Keys live ONLY in Render env vars.
 // Env (Kraken: KRAKEN_API_KEY, KRAKEN_API_SECRET): PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV (production|sandbox), APP_PASSCODE,
-//      PLAID_ACCESS_TOKEN (set after you link your bank once), ALLOWED_ORIGIN (optional)
+//      PLAID_ACCESS_TOKEN (set after you link your bank once), ALLOWED_ORIGIN (optional),
+//      DATABASE_URL (Neon Postgres, for syncing app data across devices)
 const express = require('express');
 const cors = require('cors');
 const { Configuration, PlaidApi, PlaidEnvironments, Products, CountryCode } = require('plaid');
+const { Pool } = require('pg');
 
 const { PLAID_CLIENT_ID, PLAID_SECRET, APP_PASSCODE, ALLOWED_ORIGIN } = process.env;
 const PLAID_ENV = process.env.PLAID_ENV || 'production';
@@ -15,7 +17,7 @@ const plaid = new PlaidApi(new Configuration({
 }));
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 app.use(cors({ origin: ALLOWED_ORIGIN ? ALLOWED_ORIGIN.split(',') : true }));
 
 // Passcode gate: nobody can read balances without the app's passcode.
@@ -108,6 +110,36 @@ app.get('/kraken/balance', async (req, res) => {
     console.error('kraken', e.code || e.message);
     res.status(e.code === 'kraken_not_configured' ? 409 : 500).json({ error: e.code || 'kraken_error' });
   }
+});
+
+// ---- App data sync: one JSON copy of the calendar, shared by every device. ----
+// `version` goes up on every save; a save based on an older version is refused so a stale device can't overwrite newer data.
+const db = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
+const dbReady = db && db.query('CREATE TABLE IF NOT EXISTS app_state (id text PRIMARY KEY, data jsonb NOT NULL, version bigint NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())');
+if (dbReady) dbReady.catch(e => console.error('db init', e.message));
+async function currentState() {
+  await dbReady;
+  const r = await db.query("SELECT data, version FROM app_state WHERE id = 'main'");
+  return r.rows[0] ? { data: r.rows[0].data, version: Number(r.rows[0].version) } : { data: null, version: 0 };
+}
+app.get('/state', async (req, res) => {
+  if (!db) return res.status(409).json({ error: 'db_not_configured' });
+  try { res.json(await currentState()); } catch (e) { fail(res, e); }
+});
+app.put('/state', async (req, res) => {
+  if (!db) return res.status(409).json({ error: 'db_not_configured' });
+  const { data, base } = req.body || {};
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return res.status(400).json({ error: 'bad_data' });
+  try {
+    await dbReady;
+    const r = await db.query(
+      `INSERT INTO app_state (id, data, version) VALUES ('main', $1, 1)
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, version = app_state.version + 1, updated_at = now()
+       WHERE app_state.version = $2
+       RETURNING version`, [JSON.stringify(data), Number(base) || 0]);
+    if (!r.rows.length) return res.status(409).json({ error: 'conflict', ...(await currentState()) });
+    res.json({ version: Number(r.rows[0].version) });
+  } catch (e) { fail(res, e); }
 });
 
 function fail(res, e) {
