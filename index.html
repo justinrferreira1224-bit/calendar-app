@@ -759,6 +759,9 @@
   let clockInVal = '';
   let clockOutVal = '';
   let clockRating = null;
+  let clockLunch = 60; // unpaid lunch minutes
+  // Estimated pay for a scheduled (not yet clocked) shift: assumes a 1 hr unpaid lunch.
+  function estPay(t) { const r = t.rate || JOB_RATES[t.job] || 0; return (r && t.dur > 60) ? Math.round(r * (t.dur - 60) / 60 * 100) / 100 : (Number(t.pay) || 0); }
 
   function openClockFlow(t) {
     const dateKey = t._dateKey || selectedDate;
@@ -769,6 +772,7 @@
     clockInVal = real.clockIn || real.time;
     clockOutVal = real.clockOut || minutesToTime(timeToMinutes(real.time) + real.dur);
     clockRating = (real.shiftRating != null) ? real.shiftRating : null;
+    clockLunch = (real.lunch != null) ? real.lunch : 60;
     renderClockStep();
     document.getElementById('clockBackdrop').classList.add('open');
   }
@@ -798,6 +802,23 @@
       inp.id = 'clockTimeSelect';
       inp.value = clockOutVal;
       body.appendChild(inp);
+      nextBtn.textContent = 'next';
+    } else if (clockStep === 3) {
+      title.textContent = 'How long was your lunch?';
+      const row = document.createElement('div');
+      row.className = 'chip-row';
+      row.style.justifyContent = 'center';
+      [[60, '1 hr'], [30, '30 min'], [0, 'No lunch']].forEach(([m, label]) => {
+        const c = document.createElement('div');
+        c.className = 'chip';
+        c.textContent = label;
+        c.style.cursor = 'pointer';
+        c.style.border = '1.5px solid ' + (clockLunch === m ? '#fff' : 'transparent');
+        c.style.background = clockLunch === m ? '#262626' : '';
+        c.onclick = () => { clockLunch = m; renderClockStep(); };
+        row.appendChild(c);
+      });
+      body.appendChild(row);
       nextBtn.textContent = 'next';
     } else {
       title.textContent = 'How was your shift?';
@@ -830,11 +851,16 @@
       clockOutVal = document.getElementById('clockTimeSelect').value;
       clockStep = 3;
       renderClockStep();
+    } else if (clockStep === 3) {
+      clockStep = 4;
+      renderClockStep();
     } else {
       const [sh, sm] = clockInVal.split(':').map(Number);
       const [eh, em] = clockOutVal.split(':').map(Number);
       let dur = (eh * 60 + em) - (sh * 60 + sm);
       if (dur <= 0) dur += 24 * 60; // overnight actual shift too
+      dur = Math.max(0, dur - clockLunch); // unpaid lunch comes off paid time
+      clockTask.lunch = clockLunch;
       const rate = clockTask.rate || JOB_RATES[clockTask.job] || 0;
       const pay = Math.round(rate * dur / 60 * 100) / 100;
       clockTask.clockIn = clockInVal;
@@ -971,7 +997,7 @@
     Object.keys(state.tasks).filter(d => d.startsWith(ymKey + '-')).forEach(dateStr => {
       (state.tasks[dateStr] || []).forEach(t => {
         if (t.title !== 'Work' || !t.job || !JOB_RATES[t.job]) return;
-        projGross += t.clockedOut ? (Number(t.actualPay) || 0) : (Number(t.pay) || 0);
+        projGross += t.clockedOut ? (Number(t.actualPay) || 0) : estPay(t);
       });
     });
     const projNet = projGross * (1 - TAX_RATE);
@@ -2500,7 +2526,7 @@
         <div class="task-title ${t.done ? 'done' : ''}">Work @ ${t.job}${t._continuation ? ' (in progress)' : ''}${t.clockedOut ? ' ✓' : ''}</div>
         <div class="task-meta">${t.clockedOut
           ? `Actual: ${fmtTime(t.clockIn)} &ndash; ${fmtTime(t.clockOut)} &middot; ${(t.actualDur/60).toFixed(1)}h &middot; $${t.actualPay.toFixed(2)}${t.shiftRating != null ? ' &middot; ' + SHIFT_SMILEYS[t.shiftRating] : ''}`
-          : `${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime((timeToMinutes(t.time) + t.dur)))} &middot; ${(t.dur/60).toFixed(1)}h &middot; $${t.pay.toFixed(2)}`}</div>
+          : `${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime((timeToMinutes(t.time) + t.dur)))} &middot; ${(t.dur/60).toFixed(1)}h &middot; $${estPay(t).toFixed(2)}`}</div>
       </div>
     ` : `
       <div class="task-check ${t.done ? 'done' : ''}${(isRoutine && options.routineTemplate) || passive ? ' hidden' : ''}"></div>
@@ -2609,7 +2635,7 @@
         if (t.clockedOut) {
           body += `<br>• Clocked: ${fmtTime(t.clockIn)} &ndash; ${fmtTime(t.clockOut)}<br>• Actual: ${(t.actualDur / 60).toFixed(1)}h &middot; $${t.actualPay.toFixed(2)}`;
         } else if (t.time) {
-          body += `<br>• Scheduled: ${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime(timeToMinutes(t.time) + t.dur))}<br>• Est. pay: $${t.pay.toFixed(2)}`;
+          body += `<br>• Scheduled: ${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime(timeToMinutes(t.time) + t.dur))}<br>• Est. pay: $${estPay(t).toFixed(2)} (1 hr lunch off)`;
         }
         openInfoSheet('Work', body);
       } else {
