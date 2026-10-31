@@ -1664,6 +1664,7 @@
   const MONTHS_TO_SHOW = 4;
 
   function renderCalendar() {
+    try { ensureAutoMonthly(viewDate.getFullYear(), viewDate.getMonth()); } catch (e) {}
     const monthLabel = document.getElementById('monthLabel');
     if (typeof renderMonthlyGrid === 'function' && document.getElementById('monthlyList')) { renderMonthlyGrid(); renderMonthlyObjs(); }
     monthLabel.innerHTML = `<span class="title-month">${viewDate.toLocaleString('default', { month: 'long' })}</span> <span class="title-year">${viewDate.getFullYear()}</span>`;
@@ -1820,7 +1821,30 @@
   ];
   if (!Array.isArray(state.bills)) { state.bills = DEFAULT_BILLS.map(b => ({ ...b })); try { save(); } catch (e) {} }
   if (!state.bills.some(b => b.weekday === 3 && b.name === 'Gas')) { state.bills.push({ weekday: 3, name: 'Gas', amt: 100 }); try { save(); } catch (e) {} }
-  const billsOn = (y, m, d) => state.bills.filter(b => b.day === d || (b.weekday !== undefined && new Date(y, m, d).getDay() === b.weekday));
+  const billsOn = (y, m, d) => state.bills.filter(b => b.nth ? (new Date(y, m, d).getDay() === b.weekday && Math.ceil(d / 7) === b.nth) : (b.day === d || (b.weekday !== undefined && new Date(y, m, d).getDay() === b.weekday)));
+  const AUTO_MONTHLY = [
+    { name: 'Grocery shop', weekday: 1, nth: 1, dur: 90, time: '10:00', amt: 150 },
+    { name: 'Shop for Chapo', weekday: 3, nth: 1, dur: 60, time: '10:00', amt: 150 }
+  ];
+  AUTO_MONTHLY.forEach(a => {
+    if (!state.bills.some(b => b.nth && b.name === a.name)) state.bills.push({ weekday: a.weekday, nth: a.nth, name: a.name, amt: a.amt });
+  });
+  state.autoMonthlyDone = state.autoMonthlyDone || {};
+  function ensureAutoMonthly(y, m) {
+    let changed = false;
+    AUTO_MONTHLY.forEach(a => {
+      const ym = y + '-' + String(m + 1).padStart(2, '0');
+      const k = ym + '|' + a.name;
+      if (state.autoMonthlyDone[k]) return;
+      const day = 1 + ((a.weekday - new Date(y, m, 1).getDay() + 7) % 7);
+      const ds = ym + '-' + String(day).padStart(2, '0');
+      if (!state.tasks[ds]) state.tasks[ds] = [];
+      state.tasks[ds].push({ id: uid(), title: a.name, time: a.time, dur: a.dur, done: false, monthlyObj: true });
+      state.autoMonthlyDone[k] = true; changed = true;
+    });
+    if (changed) save();
+  }
+  try { save(); } catch (e) {}
   const fmtMoney = n => '$' + (Number(n) || 0).toLocaleString();
   const fmtOut = n => '-' + fmtMoney(n);
   let billSelDay = null;
@@ -2100,6 +2124,7 @@
   ['Car wash', 'Meal prep'].forEach(n => {
     if (state.monthlyObjs.length < 8 && !state.monthlyObjs.some(o => o.name.toLowerCase() === n.toLowerCase())) state.monthlyObjs.push({ id: uid(), name: n });
   });
+  state.monthlyObjs = (state.monthlyObjs || []).filter(o => !AUTO_MONTHLY.some(a => a.name.toLowerCase() === o.name.toLowerCase()));
   try { save(); } catch (e) {}
   state.monthlyDone = state.monthlyDone || {};
   let objEditId = null;
