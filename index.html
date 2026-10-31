@@ -902,11 +902,27 @@
     }
     return out;
   }
+  // Deposits that landed from the day before payday to 3 days after (banks can post a day or two late).
   function paycheckReceived(payday) {
-    const [y, m, d] = payday.split('-').map(Number);
-    const l = bankDepositsOn(y, m - 1, d);
-    if (!l || !l.length) return null;
-    return l.reduce((a, x) => a + (Number(x.amount) || 0), 0);
+    let total = 0, any = false;
+    for (let i = -1; i <= 3; i++) {
+      const [y, m, d] = addDays(payday, i).split('-').map(Number);
+      const l = bankDepositsOn(y, m - 1, d);
+      if (l && l.length) { any = true; total += l.reduce((a, x) => a + (Number(x.amount) || 0), 0); }
+    }
+    return any ? total : null;
+  }
+  // The paycheck the Report tracks right now: the next payday (stays up 3 days after payday so the deposit can show).
+  function activePaycheck() {
+    const today = fmtDate(new Date());
+    for (let k = -3; k <= 40; k++) {
+      const end = addDays(PAY_ANCHOR_END, k * 14), payday = addDays(end, 7);
+      if (addDays(payday, 3) >= today) {
+        const start = addDays(end, -13), gross = periodGross(start, end);
+        return { start, end, payday, gross, net: gross * (1 - TAX_RATE_PP) };
+      }
+    }
+    return null;
   }
 
   // ---- Weekly report: hours/pay per job, rolled up Sun-Sat ----
@@ -1025,9 +1041,12 @@
     const monthName = new Date(ymKey + '-01T00:00').toLocaleString('default', { month: 'long' });
     // Projected = everything scheduled this whole month across current jobs (clocked = real pay, scheduled = estimate), minus estimated tax.
     const TAX_RATE = 0.20;
-    const checks = paychecksForMonth(ymKey).filter(c => c.gross > 0 || paycheckReceived(c.payday) !== null);
-    let projGross = checks.reduce((a, c) => a + c.gross, 0);
-    const projNet = projGross * (1 - TAX_RATE);
+    const ap = activePaycheck() || { start: '', end: '', payday: fmtDate(new Date()), gross: 0, net: 0 };
+    const projGross = ap.gross, projNet = ap.net;
+    const apYm = ap.payday.slice(0, 7);
+    if (bankPass() && bankCache() && !depStore()[apYm]) refreshDeposits(apYm).then(() => { if (depStore()[apYm]) refreshAcctTiles(); });
+    const apGot = paycheckReceived(ap.payday);
+    const fdp = ds => new Date(ds + 'T00:00').toLocaleString('default', { month: 'short', day: 'numeric' });
     const boxS = 'flex:0 0 112px;width:112px;height:112px;box-sizing:border-box;border:1.5px solid #fff;border-radius:12px;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;';
     const valS = '-moz-appearance:textfield;appearance:textfield;width:68px;background:transparent;border:none;outline:none;text-align:center;font-size:20px;font-weight:800;font-family:inherit;color:#4caf50;padding:0;';
     {
@@ -1040,11 +1059,12 @@
           <div style="${tile}" onclick="refreshKraken(true)"><div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Kraken</div>${money(bankPass() && kb ? kb.total : null, '—')}<div style="font-size:9px;color:#fff;opacity:.55;">${kb ? 'live' : ''}</div></div>
         </div>`;
     }
-    html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Income — ${monthName}</h2></div>
+    html += `<div class="task-header" style="margin:18px 0 8px 0;"><h2>Paycheck — ${fdp(ap.payday)}</h2></div>
+      <div style="font-size:11px;color:#fff;opacity:.55;margin:-4px 0 8px 0;">covers ${fdp(ap.start)} – ${fdp(ap.end)}</div>
       <div style="display:flex;gap:12px;">
         <div style="${boxS}">
           <div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Made</div>
-          ${bankIncomeFor(ymKey) !== null ? `<div style="color:#4caf50;font-size:20px;font-weight:800;">$${Math.round(bankIncomeFor(ymKey)).toLocaleString()}</div><div style="font-size:9px;color:#fff;opacity:.55;">from bank</div>` : `<div style="display:flex;align-items:center;justify-content:center;color:#4caf50;font-size:20px;font-weight:800;"><span>$</span><input type="number" inputmode="decimal" placeholder="0" value="${hasPaid ? inc.paid : ''}" onchange="setIncome('paid', this.value)" style="${valS}width:64px;text-align:left;"></div>`}
+          ${apGot !== null ? `<div style="color:#4caf50;font-size:20px;font-weight:800;">$${Math.round(apGot).toLocaleString()}</div><div style="font-size:9px;color:#fff;opacity:.55;">from bank</div>` : `<div style="color:#fff;opacity:.6;font-size:14px;font-weight:700;">not yet</div><div style="font-size:9px;color:#fff;opacity:.55;">from bank</div>`}
         </div>
         <div style="${boxS}">
           <div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;">Projected</div>
