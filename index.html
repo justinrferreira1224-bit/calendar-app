@@ -1975,10 +1975,11 @@
   function syncGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function syncSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function syncDirty() { return syncHash(syncPayload()) !== syncGet('cal_sync_hash'); }
+  function syncHasData(d) { return !!d && (Object.keys(d.tasks || {}).length > 0 || (d.notes || []).length > 0); }
 
   function adoptCloudState(data, version) {
     const local = syncPayload();
-    if (syncDirty() && syncGet('cal_sync_ver')) syncSet('cal_state_backup', local); // both sides changed: keep this device's copy just in case
+    if (syncHasData(state) && syncDirty()) syncSet('cal_state_backup', local); // never throw away this device's own data without a backup
     const photos = state.exercisePhotos;
     state = data;
     state.exercisePhotos = photos || {};
@@ -2019,6 +2020,7 @@
       const known = syncGet('cal_sync_ver');
       if (!j.data) return cloudPush(); // first device to sync uploads its copy
       if (String(j.version) === known) return cloudPush(); // nothing new on the server; send any local changes
+      if (!known && syncHasData(state) && !syncHasData(j.data)) { syncSet('cal_sync_ver', String(j.version)); return cloudPush(); } // first sync: real data here beats a blank copy there
       adoptCloudState(j.data, j.version);
     } catch (e) { /* offline, wrong passcode or server asleep: keep using the local copy */ }
   }
