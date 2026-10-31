@@ -1832,6 +1832,9 @@
   state.autoMonthlyDone = state.autoMonthlyDone || {};
   function ensureAutoMonthly(y, m) {
     let changed = false;
+    Object.keys(state.tasks).forEach(d => (state.tasks[d] || []).forEach(t => {
+      if (t.monthlyObj && !t.auto && t.time === '10:00' && AUTO_MONTHLY.some(a => a.name === t.title && a.dur === t.dur)) { t.time = ''; t.dur = 0; t.auto = true; changed = true; }
+    }));
     AUTO_MONTHLY.forEach(a => {
       const ym = y + '-' + String(m + 1).padStart(2, '0');
       const k = ym + '|' + a.name;
@@ -1839,7 +1842,7 @@
       const day = 1 + ((a.weekday - new Date(y, m, 1).getDay() + 7) % 7);
       const ds = ym + '-' + String(day).padStart(2, '0');
       if (!state.tasks[ds]) state.tasks[ds] = [];
-      state.tasks[ds].push({ id: uid(), title: a.name, time: a.time, dur: a.dur, done: false, monthlyObj: true });
+      state.tasks[ds].push({ id: uid(), title: a.name, time: '', dur: 0, done: false, monthlyObj: true, auto: true });
       state.autoMonthlyDone[k] = true; changed = true;
     });
     if (changed) save();
