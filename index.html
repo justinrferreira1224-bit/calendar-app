@@ -1821,14 +1821,15 @@
   if (!Array.isArray(state.bills)) { state.bills = DEFAULT_BILLS.map(b => ({ ...b })); try { save(); } catch (e) {} }
   if (!state.bills.some(b => b.weekday === 3 && b.name === 'Gas')) { state.bills.push({ weekday: 3, name: 'Gas', amt: 100 }); try { save(); } catch (e) {} }
   // cleanup of the earlier auto-assign experiment
-  state.bills = state.bills.filter(b => !b.nth);
   Object.keys(state.tasks).forEach(d => { if ((state.tasks[d] || []).some(t => t.auto)) state.tasks[d] = state.tasks[d].filter(t => !t.auto); });
   delete state.autoMonthlyDone;
-  const MONTHLY_COST = { 'grocery shop': 150, 'shop for chapo': 150 };
+  const MONTHLY_COST = {};
+  [{ name: 'Grocery shop', weekday: 1 }, { name: 'Shop for Chapo', weekday: 3 }].forEach(a => { if (!state.bills.some(b => b.nth && b.name === a.name)) state.bills.push({ weekday: a.weekday, nth: 1, name: a.name, amt: 150 }); });
+  
   const billsOn = (y, m, d) => {
     const ds = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
     const fromTasks = (state.tasks[ds] || []).filter(t => t.cost).map(t => ({ name: t.title, amt: t.cost, _task: true }));
-    return state.bills.filter(b => b.day === d || (b.weekday !== undefined && new Date(y, m, d).getDay() === b.weekday)).concat(fromTasks);
+    return state.bills.filter(b => b.nth ? (new Date(y, m, d).getDay() === b.weekday && Math.ceil(d / 7) === b.nth) : (b.day === d || (b.weekday !== undefined && new Date(y, m, d).getDay() === b.weekday))).concat(fromTasks);
   };
   const fmtMoney = n => '$' + (Number(n) || 0).toLocaleString();
   const fmtOut = n => '-' + fmtMoney(n);
