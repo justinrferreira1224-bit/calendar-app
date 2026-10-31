@@ -2563,6 +2563,18 @@
     return wrap;
   }
 
+  // Weekly planning: the week you're planning runs Sun-Sat and flips to NEXT week every Friday.
+  function planWeekStart() {
+    const now = new Date(), dow = now.getDay();
+    const sun = addDays(fmtDate(now), -dow);
+    return dow >= 5 ? addDays(sun, 7) : sun;
+  }
+  const GREY_TITLES = ['Workout', 'Morning Routine', 'Work', 'Night Routine'].concat(SIMPLE_TITLES);
+  function routineScheduledThisPlanWeek(title, weekday) {
+    const date = addDays(planWeekStart(), weekday);
+    return (state.tasks[date] || []).some(x => x.title === title && !x.commute);
+  }
+
   function taskCard(t, options = {}) {
     const isRoutine = options.routineTemplate || t.isRoutine;
     const passive = !!t._continuation && t.title !== 'Work'; // the carried-over part of a routine/workout that crosses midnight
@@ -2603,6 +2615,11 @@
       </div>
     `;
     if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
+    if (isRoutine && options.routineTemplate && routineDay !== null && GREY_TITLES.includes(t.title) && routineScheduledThisPlanWeek(t.title, routineDay)) {
+      item.style.opacity = '.3';
+      item.style.filter = 'grayscale(1)';
+      item.style.pointerEvents = 'none';
+    }
     if (t.title === 'Workout') item.classList.add('task-item-workout');
     if (t.title === 'Morning Routine') item.classList.add('task-item-morning');
     if (t.title === 'Night Routine') item.classList.add('task-item-night');
