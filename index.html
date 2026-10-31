@@ -67,6 +67,8 @@
     position: relative; background: #1a1a1a; border: 1px solid #262626; border-radius: 10px;
     touch-action: pan-y; transition: transform 0.15s ease;
   }
+  .task-greyed, .swipe-content.task-greyed { background: #2b2b2b !important; border: 1.5px solid #4a4a4a !important; box-shadow: none !important; }
+  .task-greyed .task-title, .task-greyed .task-meta, .task-greyed svg, .task-greyed * { color: #7a7a7a !important; }
   .swipe-content.task-item-workout {
     background: #1656d6;
     border: 1.5px solid #fff;
@@ -2616,8 +2618,7 @@
     `;
     if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
     if (isRoutine && options.routineTemplate && routineDay !== null && GREY_TITLES.includes(t.title) && routineScheduledThisPlanWeek(t.title, routineDay)) {
-      item.style.opacity = '.3';
-      item.style.filter = 'grayscale(1)';
+      item.classList.add('task-greyed');
       item.style.pointerEvents = 'none';
     }
     if (t.title === 'Workout') item.classList.add('task-item-workout');
