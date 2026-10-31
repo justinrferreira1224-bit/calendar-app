@@ -2625,6 +2625,11 @@
       </div>
     `;
     if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
+    const monthlyAllDone = () => { const ym = planWeekStart().slice(0, 7); const objs = state.monthlyObjs || []; return objs.length > 0 && objs.every(o => monthlyObjScheduled(o.name, ym)); };
+    if (isRoutine && options.routineTemplate && t.title === 'Monthly Routines' && monthlyAllDone()) {
+      item.classList.add('task-greyed');
+      item.style.pointerEvents = 'none';
+    }
     if (isRoutine && options.routineTemplate && routineDay !== null && GREY_TITLES.includes(t.title) && routineScheduledThisPlanWeek(t.title, routineDay)) {
       item.classList.add('task-greyed');
       item.style.pointerEvents = 'none';
