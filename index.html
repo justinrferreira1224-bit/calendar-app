@@ -713,13 +713,18 @@
     document.getElementById('jobPickTitle').textContent = 'Which routine?';
     const row = document.getElementById('jobChipRow');
     row.innerHTML = '';
-    (state.monthlyObjs || []).forEach(o => {
+    const ymPick = viewDate.getFullYear() + '-' + String(viewDate.getMonth() + 1).padStart(2, '0');
+    const left = (state.monthlyObjs || []).filter(o => !monthlyObjScheduled(o.name, ymPick));
+    if (!left.length) {
+      const done = document.createElement('div');
+      done.style.cssText = 'width:100%;text-align:center;opacity:.7;padding:10px 0;';
+      done.textContent = 'All monthly objectives are scheduled. They come back next month.';
+      row.appendChild(done);
+    }
+    left.forEach(o => {
       const chip = document.createElement('div');
       chip.className = 'chip';
-      const ym = viewDate.getFullYear() + '-' + String(viewDate.getMonth() + 1).padStart(2, '0');
-      const taken = monthlyObjScheduled(o.name, ym);
-      chip.textContent = o.name + (taken ? ' ✓' : '');
-      if (taken) { chip.style.opacity = '.35'; chip.style.pointerEvents = 'none'; }
+      chip.textContent = o.name;
       chip.onclick = () => {
         pendingMonthlyObj = o.name;
         closeJobPickSheet();
