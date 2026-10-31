@@ -116,7 +116,16 @@ app.get('/kraken/balance', async (req, res) => {
 // `version` goes up on every save; a save based on an older version is refused so a stale device can't overwrite newer data.
 const db = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
 const dbReady = db && db.query('CREATE TABLE IF NOT EXISTS app_state (id text PRIMARY KEY, data jsonb NOT NULL, version bigint NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())');
-if (dbReady) dbReady.catch(e => console.error('db init', e.message));
+const logReady = db && dbReady.then(() => db.query('CREATE TABLE IF NOT EXISTS sync_log (at timestamptz NOT NULL DEFAULT now(), method text, device text, task_days int, notes int, result text)'));
+if (logReady) logReady.catch(e => console.error('db init', e.message));
+const hasData = d => !!d && (Object.keys(d.tasks || {}).length > 0 || (d.notes || []).length > 0);
+// Small trail of who synced what, so a device that never uploads is easy to spot. Never blocks the request.
+function logSync(req, method, d, result) {
+  if (!logReady) return;
+  logReady.then(() => db.query('INSERT INTO sync_log (method, device, task_days, notes, result) VALUES ($1, $2, $3, $4, $5)',
+    [method, (req.get('user-agent') || '').slice(0, 200), d ? Object.keys(d.tasks || {}).length : null, d ? (d.notes || []).length : null, result]))
+    .then(() => db.query("DELETE FROM sync_log WHERE at < now() - interval '30 days'")).catch(() => {});
+}
 async function currentState() {
   await dbReady;
   const r = await db.query("SELECT data, version FROM app_state WHERE id = 'main'");
@@ -124,7 +133,7 @@ async function currentState() {
 }
 app.get('/state', async (req, res) => {
   if (!db) return res.status(409).json({ error: 'db_not_configured' });
-  try { res.json(await currentState()); } catch (e) { fail(res, e); }
+  try { const cur = await currentState(); logSync(req, 'GET', cur.data, 'v' + cur.version); res.json(cur); } catch (e) { fail(res, e); }
 });
 app.put('/state', async (req, res) => {
   if (!db) return res.status(409).json({ error: 'db_not_configured' });
@@ -132,12 +141,16 @@ app.put('/state', async (req, res) => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return res.status(400).json({ error: 'bad_data' });
   try {
     await dbReady;
+    const cur = await currentState();
+    // A blank device must never wipe a calendar that has real tasks or notes in it.
+    if (hasData(cur.data) && !hasData(data)) { logSync(req, 'PUT', data, 'refused_blank'); return res.status(409).json({ error: 'would_erase', ...cur }); }
     const r = await db.query(
       `INSERT INTO app_state (id, data, version) VALUES ('main', $1, 1)
        ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, version = app_state.version + 1, updated_at = now()
        WHERE app_state.version = $2
        RETURNING version`, [JSON.stringify(data), Number(base) || 0]);
-    if (!r.rows.length) return res.status(409).json({ error: 'conflict', ...(await currentState()) });
+    if (!r.rows.length) { logSync(req, 'PUT', data, 'conflict'); return res.status(409).json({ error: 'conflict', ...(await currentState()) }); }
+    logSync(req, 'PUT', data, 'saved v' + r.rows[0].version);
     res.json({ version: Number(r.rows[0].version) });
   } catch (e) { fail(res, e); }
 });

@@ -1997,6 +1997,43 @@
     clearTimeout(cloudTimer);
     cloudTimer = setTimeout(cloudPush, 1500);
   }
+  function syncNote(msg) { syncSet('cal_sync_status', new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' · ' + msg); }
+
+  // Union this device's tasks and notes into the server's copy (matched by id), so nothing from either side is lost.
+  function mergeIntoCloud(server, local) {
+    const m = JSON.parse(JSON.stringify(server));
+    m.tasks = m.tasks || {};
+    Object.entries(local.tasks || {}).forEach(([day, list]) => {
+      const have = new Set((m.tasks[day] || []).map(t => t.id));
+      m.tasks[day] = [...(m.tasks[day] || []), ...(list || []).filter(t => !have.has(t.id))];
+    });
+    const noteIds = new Set((m.notes || []).map(n => n.id));
+    m.notes = [...(m.notes || []), ...(local.notes || []).filter(n => !noteIds.has(n.id))];
+    return m;
+  }
+
+  // One place that decides what to do with the server's copy, used by every sync path.
+  function cloudReconcile(j) {
+    const known = syncGet('cal_sync_ver');
+    if (!j.data) { syncSet('cal_sync_ver', '0'); return cloudPush(); } // first device to sync uploads its copy
+    if (String(j.version) === known) return cloudPush(); // nothing new on the server; send any local changes
+    if (!known && syncHasData(state)) {
+      // This device has never synced but has real data: it must never be overwritten.
+      if (!syncHasData(j.data)) { syncSet('cal_sync_ver', String(j.version)); return cloudPush(); }
+      const local = JSON.parse(syncPayload());
+      const photos = state.exercisePhotos;
+      state = mergeIntoCloud(j.data, local);
+      state.exercisePhotos = photos || {};
+      syncSet('cal_state_backup', JSON.stringify(local));
+      syncSet('cal_sync_ver', String(j.version)); // hash left stale on purpose, so the merged copy uploads after the reload
+      save();
+      syncNote('merged this device into the shared calendar');
+      return location.reload();
+    }
+    syncNote('loaded the shared calendar (v' + j.version + ')');
+    adoptCloudState(j.data, j.version);
+  }
+
   async function cloudPush() {
     if (!bankPass() || !syncDirty()) return;
     if (cloudBusy) { cloudAgain = true; return; }
@@ -2006,8 +2043,11 @@
       const j = await bankFetch('/state', { method: 'PUT', body: '{"base":' + (Number(syncGet('cal_sync_ver')) || 0) + ',"data":' + body + '}' });
       syncSet('cal_sync_ver', String(j.version));
       syncSet('cal_sync_hash', syncHash(body));
+      syncNote('saved (v' + j.version + ')');
     } catch (e) {
-      if (e.code === 'conflict') { const cur = await bankFetch('/state'); if (cur.data) return adoptCloudState(cur.data, cur.version); }
+      if (e.code === 'would_erase') { cloudBusy = false; cloudAgain = false; const cur = await bankFetch('/state'); syncNote('loaded the shared calendar (v' + cur.version + ')'); return adoptCloudState(cur.data, cur.version); } // this copy is blank: take the real one
+      if (e.code === 'conflict') { cloudBusy = false; cloudAgain = false; const cur = await bankFetch('/state'); return cloudReconcile(cur); }
+      syncNote('could not save: ' + (e.code === 'unauthorized' ? 'wrong passcode' : e.name === 'AbortError' ? 'server took too long' : (e.code || e.message)));
     } finally {
       cloudBusy = false;
       if (cloudAgain) { cloudAgain = false; cloudPush(); }
@@ -2016,14 +2056,22 @@
   async function cloudPull() {
     if (!bankPass() || cloudBusy) return;
     try {
-      const j = await bankFetch('/state');
-      const known = syncGet('cal_sync_ver');
-      if (!j.data) return cloudPush(); // first device to sync uploads its copy
-      if (String(j.version) === known) return cloudPush(); // nothing new on the server; send any local changes
-      if (!known && syncHasData(state) && !syncHasData(j.data)) { syncSet('cal_sync_ver', String(j.version)); return cloudPush(); } // first sync: real data here beats a blank copy there
-      adoptCloudState(j.data, j.version);
-    } catch (e) { /* offline, wrong passcode or server asleep: keep using the local copy */ }
+      cloudReconcile(await bankFetch('/state'));
+    } catch (e) {
+      // offline, wrong passcode or server asleep: keep using the local copy
+      syncNote('could not load: ' + (e.code === 'unauthorized' ? 'wrong passcode' : e.name === 'AbortError' ? 'server took too long' : (e.code || e.message)));
+    }
   }
+  // If an earlier version of the sync replaced this device's data, bring it back from the backup it saved and re-sync as new.
+  (function restoreFromSyncBackup() {
+    try {
+      const b = JSON.parse(syncGet('cal_state_backup') || 'null');
+      if (!syncHasData(b) || syncHasData(state)) return;
+      state = mergeIntoCloud(state, b);
+      localStorage.removeItem('cal_sync_ver');
+      save();
+    } catch (e) {}
+  })();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') cloudPull(); });
 
   function renderBalanceBar() {
@@ -2078,7 +2126,8 @@
   function renderBankSheet() {
     const c = bankCache();
     document.getElementById('bankPass').value = bankPass();
-    document.getElementById('bankStatus').textContent = bankLinkMsg || (c ? 'Updated ' + new Date(c.asOf).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : (bankPass() ? 'Not linked yet — tap connect Chase.' : 'Enter your app passcode, then connect Chase.'));
+    document.getElementById('bankStatus').textContent = bankLinkMsg || (c ? 'Updated ' + new Date(c.asOf).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : (bankPass() ? 'Not linked yet — tap connect Chase.' : 'Enter your app passcode, then connect Chase.'))
+      + (syncGet('cal_sync_status') ? ' · Calendar sync: ' + syncGet('cal_sync_status') : (bankPass() ? '' : ' · The passcode also turns on calendar sync.'));
     document.getElementById('bankAccounts').innerHTML = c ? c.accounts.map(a => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222;"><span>${a.name}${a.mask ? ' ••' + a.mask : ''}</span><span style="color:${Number(a.available ?? a.current) < 0 ? '#ff5252' : '#4caf50'};font-weight:700;">${bankMoney(a.available ?? a.current)}</span></div>`).join('') : '';
   }
   function openBankSheet() { renderBankSheet(); document.getElementById('bankBackdrop').classList.add('open'); if (bankPass()) refreshBalance(); }
