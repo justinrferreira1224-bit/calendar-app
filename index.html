@@ -763,6 +763,18 @@
   // Estimated pay for a scheduled (not yet clocked) shift: assumes a 1 hr unpaid lunch.
   function estPay(t) { const r = t.rate || JOB_RATES[t.job] || 0; return (r && t.dur > 60) ? Math.round(r * (t.dur - 60) / 60 * 100) / 100 : (Number(t.pay) || 0); }
 
+  // Commute block added before every shift. Minutes per job (each job's drive is different).
+  const COMMUTE_MINS = { 'CarMax': 60 };
+  function addCommute(dateStr, work) {
+    const c = COMMUTE_MINS[work.job] || 0;
+    if (!c || !work.time) return;
+    if (Object.keys(state.tasks).some(d => (state.tasks[d] || []).some(t => t.linkId === work.id))) return;
+    let start = timeToMinutes(work.time) - c, d = dateStr;
+    if (start < 0) { d = addDays(dateStr, -1); start += 24 * 60; }
+    if (!state.tasks[d]) state.tasks[d] = [];
+    state.tasks[d].push({ id: uid(), title: 'Commute to work', time: minutesToTime(start), dur: c, done: false, commute: true, linkId: work.id });
+  }
+
   function openClockFlow(t) {
     const dateKey = t._dateKey || selectedDate;
     const real = (state.tasks[dateKey] || []).find(x => x.id === t.id);
@@ -1184,7 +1196,9 @@
       extra = { monthlyObj: true, cost: MONTHLY_COST[pendingMonthlyObj.toLowerCase()] || 0 };
     }
     if (!state.tasks[pendingWorkoutDate]) state.tasks[pendingWorkoutDate] = [];
-    state.tasks[pendingWorkoutDate].push({ id: uid(), title: pendingScheduleTitle, time, dur, done: false, ...extra });
+    const newTask = { id: uid(), title: pendingScheduleTitle, time, dur, done: false, ...extra };
+    state.tasks[pendingWorkoutDate].push(newTask);
+    if (newTask.job) addCommute(pendingWorkoutDate, newTask);
     save();
     document.getElementById('workoutTimeBackdrop').classList.remove('open');
     highlightWorkoutPick = false;
@@ -1198,6 +1212,16 @@
     switchTab('schedule');
     openRoutineDay(scheduledWeekday);
   }
+
+  // One-time: give upcoming shifts that were scheduled before commutes existed their commute block.
+  try {
+    if (!state.commuteBackfilled) {
+      const todayStr = fmtDate(new Date());
+      Object.keys(state.tasks).filter(d => d >= todayStr).forEach(d => (state.tasks[d] || []).slice().forEach(t => { if (t.title === 'Work' && t.job && !t.clockedOut) addCommute(d, t); }));
+      state.commuteBackfilled = true;
+      save();
+    }
+  } catch (e) {}
 
   // ---- Pose icons: simple stick-figure demos for each exercise/stretch ----
   // Each entry is the inner SVG markup for a 100x100 viewBox stick figure.
@@ -2770,6 +2794,7 @@
     }
     const dateKey = task._dateKey || selectedDate;
     state.tasks[dateKey] = (state.tasks[dateKey] || []).filter(x => x.id !== task.id);
+    Object.keys(state.tasks).forEach(d => { if ((state.tasks[d] || []).some(x => x.linkId === task.id)) state.tasks[d] = state.tasks[d].filter(x => x.linkId !== task.id); });
     save(); renderTasks(); renderCalendar();
   }
 
