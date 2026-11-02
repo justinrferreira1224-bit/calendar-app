@@ -2584,6 +2584,7 @@
     const sun = addDays(fmtDate(now), -dow);
     return dow >= 5 ? addDays(sun, 7) : sun;
   }
+  const PROTECTED_ROUTINES = ['Workout', 'Morning Routine', 'Work', 'Night Routine', 'Monthly Routines'].concat(SIMPLE_TITLES);
   const GREY_TITLES = ['Workout', 'Morning Routine', 'Work', 'Night Routine'].concat(SIMPLE_TITLES);
   function routineScheduledThisPlanWeek(title, weekday) {
     const date = addDays(planWeekStart(), weekday);
@@ -2700,6 +2701,8 @@
       info.addEventListener('click', (e) => { e.stopPropagation(); openInfoFor(t, isRoutine); });
       item.appendChild(info);
     }
+    // The core schedule boxes can't be deleted (no swipe-to-delete on them).
+    if (isRoutine && options.routineTemplate && PROTECTED_ROUTINES.includes(t.title)) return item;
     return makeSwipeable(item, () => deleteTask(t), isRoutine ? 'this routine' : 'this task');
   }
 
@@ -2831,6 +2834,7 @@
       return;
     }
     if (routineDay !== null && activeContext === 'routine') {
+      if (PROTECTED_ROUTINES.includes(task.title)) return;
       state.routines[routineDay] = (state.routines[routineDay] || []).filter(x => x.id !== task.id);
       save();
       renderRoutineTasks();
