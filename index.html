@@ -2508,7 +2508,7 @@
   // Wraps any content element in swipe-to-delete: drag/click-hold-drag left reveals
   // a red trash button underneath. Tapping the trash asks confirm before deleting.
   // Works with touch (phone) and mouse (laptop trackpad/click-drag).
-  function makeSwipeable(contentEl, onDelete, confirmLabel) {
+  function makeSwipeable(contentEl, onDelete, confirmLabel, noSwipe) {
     const wrap = document.createElement('div');
     wrap.className = 'swipe-wrap';
 
@@ -2529,6 +2529,7 @@
     };
 
     contentEl.classList.add('swipe-content');
+    if (noSwipe) { wrap.appendChild(contentEl); return wrap; } // same look, but no swipe-to-delete
 
     wrap.appendChild(bg);
     wrap.appendChild(contentEl);
@@ -2702,7 +2703,7 @@
       item.appendChild(info);
     }
     // The core schedule boxes can't be deleted (no swipe-to-delete on them).
-    if (isRoutine && options.routineTemplate && PROTECTED_ROUTINES.includes(t.title)) return item;
+    if (isRoutine && options.routineTemplate && PROTECTED_ROUTINES.includes(t.title)) return makeSwipeable(item, () => {}, '', true);
     return makeSwipeable(item, () => deleteTask(t), isRoutine ? 'this routine' : 'this task');
   }
 
