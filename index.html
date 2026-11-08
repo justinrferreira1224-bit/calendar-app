@@ -807,11 +807,20 @@
   function addCommute(dateStr, work) {
     const c = COMMUTE_MINS[work.job] || 0;
     if (!c || !work.time) return;
-    if (Object.keys(state.tasks).some(d => (state.tasks[d] || []).some(t => t.linkId === work.id))) return;
-    let start = timeToMinutes(work.time) - c, d = dateStr;
-    if (start < 0) { d = addDays(dateStr, -1); start += 24 * 60; }
-    if (!state.tasks[d]) state.tasks[d] = [];
-    state.tasks[d].push({ id: uid(), title: 'Commute to work', time: minutesToTime(start), dur: c, done: false, commute: true, linkId: work.id });
+    const all = Object.keys(state.tasks).reduce((n, d) => n.concat(state.tasks[d] || []), []);
+    const has = title => all.some(t => t.linkId === work.id && t.title === title);
+    if (!has('Commute to work')) {
+      let start = timeToMinutes(work.time) - c, d = dateStr;
+      if (start < 0) { d = addDays(dateStr, -1); start += 24 * 60; }
+      if (!state.tasks[d]) state.tasks[d] = [];
+      state.tasks[d].push({ id: uid(), title: 'Commute to work', time: minutesToTime(start), dur: c, done: false, commute: true, linkId: work.id });
+    }
+    if (!has('Commute home')) {
+      let start = timeToMinutes(work.time) + (Number(work.dur) || 0), d = dateStr;
+      if (start >= 24 * 60) { d = addDays(dateStr, 1); start -= 24 * 60; }
+      if (!state.tasks[d]) state.tasks[d] = [];
+      state.tasks[d].push({ id: uid(), title: 'Commute home', time: minutesToTime(start), dur: c, done: false, commute: true, linkId: work.id });
+    }
   }
 
   function openClockFlow(t) {
@@ -1261,6 +1270,12 @@
       const todayStr = fmtDate(new Date());
       Object.keys(state.tasks).filter(d => d >= todayStr).forEach(d => (state.tasks[d] || []).slice().forEach(t => { if (t.title === 'Work' && t.job && !t.clockedOut) addCommute(d, t); }));
       state.commuteBackfilled = true;
+      save();
+    }
+    if (!state.commuteHomeBackfilled) {
+      const todayStr = fmtDate(new Date());
+      Object.keys(state.tasks).filter(d => d >= todayStr).forEach(d => (state.tasks[d] || []).slice().forEach(t => { if (t.title === 'Work' && t.job && !t.clockedOut) addCommute(d, t); }));
+      state.commuteHomeBackfilled = true;
       save();
     }
   } catch (e) {}
