@@ -1540,11 +1540,25 @@
     }
   }
 
+  const CARDIO_OPTIONS = [{ name: 'Pickleball', detail: '40 min game', totalSec: 40 * 60 }];
+
+  function wsPickCardio(name) {
+    const all = [ws.cardioBase].concat(CARDIO_OPTIONS);
+    ws.cardio = all.find(o => o.name === name) || ws.cardioBase;
+    wsRenderCardio();
+  }
+
   function wsRenderCardio() {
-    const c = ws.plan.cardio;
+    if (!ws.cardioBase) ws.cardioBase = ws.plan.cardio;
+    const c = ws.cardio || ws.cardioBase;
     wsSetProgress(c.name);
+    const chips = [ws.cardioBase].concat(CARDIO_OPTIONS).map(o => {
+      const on = o.name === c.name;
+      return `<button onclick="wsPickCardio('${o.name.replace(/'/g, "\\'")}')" style="padding:8px 14px;margin:0 4px;border-radius:999px;font-weight:700;border:1.5px solid ${on ? '#fff' : '#555'};background:${on ? '#fff' : 'transparent'};color:${on ? '#000' : '#fff'};">${o.name}</button>`;
+    }).join('');
     const body = document.getElementById('wsBody');
     body.innerHTML = `
+      <div style="text-align:center;margin-bottom:10px;">${chips}</div>
       <div class="ws-kicker">${c.detail}</div>
       <div class="ws-title">${c.name}</div>
       <div id="wsPhotoSlot">${wsPhotoSlot(c.name)}</div>
