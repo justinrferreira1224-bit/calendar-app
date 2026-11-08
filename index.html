@@ -653,7 +653,8 @@
   let pendingScheduleTitle = 'Workout';
   let pendingScheduleDur = WORKOUT_DURATION_MIN;
 
-  function startWorkoutScheduling() {
+  let pendingCardio = null;
+  function beginWorkoutScheduling() {
     pendingRange = false;
     pendingScheduleTitle = 'Workout';
     pendingScheduleDur = WORKOUT_DURATION_MIN;
@@ -661,6 +662,29 @@
     highlightWorkoutDay = routineDay !== null ? routineDay : new Date().getDay();
     switchTab('calendar');
     renderCalendar();
+  }
+  // Cardio days (Tue/Thu): pick which cardio first, same as picking a job.
+  function startWorkoutScheduling() {
+    pendingCardio = null;
+    const day = routineDay !== null ? routineDay : new Date().getDay();
+    const plan = WORKOUT_PLANS[day];
+    if (!plan || !plan.cardio) { beginWorkoutScheduling(); return; }
+    pendingRange = false;
+    document.getElementById('jobPickTitle').textContent = 'Which cardio?';
+    const row = document.getElementById('jobChipRow');
+    row.innerHTML = '';
+    [plan.cardio].concat(CARDIO_OPTIONS).forEach(o => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = o.name;
+      chip.onclick = () => {
+        pendingCardio = o.name;
+        closeJobPickSheet();
+        beginWorkoutScheduling();
+      };
+      row.appendChild(chip);
+    });
+    document.getElementById('jobPickBackdrop').classList.add('open');
   }
 
   function startMorningScheduling() {
@@ -1177,6 +1201,7 @@
     pendingWorkoutDate = null;
     pendingWorkJob = null;
     pendingMonthlyObj = null;
+    pendingCardio = null;
     pendingRange = false;
     renderCalendar();
   }
@@ -1211,6 +1236,7 @@
       extra = { monthlyObj: true, cost: MONTHLY_COST[pendingMonthlyObj.toLowerCase()] || 0 };
     }
     if (!state.tasks[pendingWorkoutDate]) state.tasks[pendingWorkoutDate] = [];
+    if (pendingScheduleTitle === 'Workout' && pendingCardio) extra = { ...extra, cardio: pendingCardio };
     const newTask = { id: uid(), title: pendingScheduleTitle, time, dur, done: false, ...extra };
     state.tasks[pendingWorkoutDate].push(newTask);
     if (newTask.job) addCommute(pendingWorkoutDate, newTask);
@@ -1221,6 +1247,7 @@
     pendingWorkoutDate = null;
     pendingWorkJob = null;
     pendingMonthlyObj = null;
+    pendingCardio = null;
     pendingRange = false;
     renderCalendar();
     const scheduledWeekday = highlightWorkoutDay;
@@ -1392,6 +1419,10 @@
       secondsLeft: 0,
       resting: false,
     };
+    if (scheduledTask && scheduledTask.cardio && plan.cardio) {
+      const pick = CARDIO_OPTIONS.find(o => o.name === scheduledTask.cardio);
+      if (pick) ws.cardio = pick;
+    }
     document.getElementById('workoutSession').classList.add('open');
     wsRenderStretch();
   }
