@@ -681,7 +681,7 @@
         pendingCardio = o.name;
         closeJobPickSheet();
         beginWorkoutScheduling();
-        if (o.totalSec > 40 * 60) pendingScheduleDur = 15 + o.totalSec / 60; // stretch + longer cardio
+        if (o.name === 'Pickleball') { pendingCardio = null; pendingScheduleTitle = 'Pickleball'; pendingScheduleDur = 120; } // plain 2 hr task, no workout
       };
       row.appendChild(chip);
     });
@@ -2650,7 +2650,7 @@
   const GREY_TITLES = ['Workout', 'Morning Routine', 'Work', 'Night Routine'].concat(SIMPLE_TITLES);
   function routineScheduledThisPlanWeek(title, weekday) {
     const date = addDays(planWeekStart(), weekday);
-    return (state.tasks[date] || []).some(x => x.title === title && !x.commute);
+    return (state.tasks[date] || []).some(x => (x.title === title || (title === 'Workout' && x.title === 'Pickleball')) && !x.commute);
   }
 
   function taskCard(t, options = {}) {
@@ -2711,7 +2711,7 @@
       item.addEventListener('click', (e) => { e.stopPropagation(); startSimpleScheduling(t.title); });
     }
     if (t.title === 'Work') item.classList.add('task-item-work');
-    if (!isRoutine && !passive && (SIMPLE_TITLES.includes(t.title) || t.monthlyObj)) {
+    if (!isRoutine && !passive && (SIMPLE_TITLES.includes(t.title) || t.monthlyObj || t.title === 'Pickleball')) {
       // Scheduled weekly/monthly routine items (Church, Laundry, Grocery shop...) use the same black card; tap to mark done.
       item.classList.add('task-item-monthly');
       item.style.cursor = 'pointer';
