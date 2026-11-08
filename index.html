@@ -681,6 +681,7 @@
         pendingCardio = o.name;
         closeJobPickSheet();
         beginWorkoutScheduling();
+        if (o.totalSec > 40 * 60) pendingScheduleDur = 15 + o.totalSec / 60; // stretch + longer cardio
       };
       row.appendChild(chip);
     });
@@ -1586,7 +1587,7 @@
     }
   }
 
-  const CARDIO_OPTIONS = [{ name: 'Pickleball', detail: '40 min game', totalSec: 40 * 60 }];
+  const CARDIO_OPTIONS = [{ name: 'Pickleball', detail: '2 hr game', totalSec: 120 * 60 }];
 
   function wsPickCardio(name) {
     const all = [ws.cardioBase].concat(CARDIO_OPTIONS);
