@@ -2362,17 +2362,20 @@
     try {
       const j = await bankFetch('/deposits?start=' + ym + '-01&end=' + (end > today ? today : end));
       const prev = state.bankDeposits[ym];
-      const dl = (j.deposits || []).map(x => ({ date: x.date, name: x.name, amount: x.amount }));
+      // Cash/ATM deposits are your own money going back in (it came out as a withdrawal), so they don't count as income.
+      const dl = (j.deposits || []).filter(x => !isCashDeposit(x)).map(x => ({ date: x.date, name: x.name, amount: x.amount }));
+      const incomeTotal = dl.reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
       const hadList = !!depStore()[ym];
       depStore()[ym] = dl; try { localStorage.setItem('bank_deps', JSON.stringify(depStore())); } catch (e) {}
-      state.bankDeposits[ym] = { total: j.total, asOf: new Date().toISOString() };
+      state.bankDeposits[ym] = { total: incomeTotal, asOf: new Date().toISOString() };
       save();
-      return !prev || prev.total !== j.total || !hadList;
+      return !prev || prev.total !== incomeTotal || !hadList;
     } catch (e) { return false; }
   }
   var _deps = null;
+  function isCashDeposit(x) { return /\b(cash|atm)\b/i.test(String((x && x.name) || '')); }
   function depStore() { if (!_deps) { try { _deps = JSON.parse(localStorage.getItem('bank_deps') || '{}') || {}; } catch (e) { _deps = {}; } } return _deps; }
-  function bankDepositsOn(y, m, d) { const k = y + '-' + String(m + 1).padStart(2, '0'); const l = depStore()[k]; if (!l) return null; const ds = k + '-' + String(d).padStart(2, '0'); return l.filter(x => x.date === ds); }
+  function bankDepositsOn(y, m, d) { const k = y + '-' + String(m + 1).padStart(2, '0'); const l = depStore()[k]; if (!l) return null; const ds = k + '-' + String(d).padStart(2, '0'); return l.filter(x => x.date === ds && !isCashDeposit(x)); }
   function bankIncomeFor(ym) { const d = (state.bankDeposits || {})[ym]; return d ? d.total : null; }
 
   window.addEventListener('load', () => {
