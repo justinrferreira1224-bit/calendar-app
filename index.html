@@ -620,9 +620,11 @@
   // One-off weekly routine boxes: each lives on a single weekday and gets a start/end time when tapped.
   const SIMPLE_ROUTINES = { 0: 'Church', 2: 'Check Emails', 4: 'Laundry', 5: 'Job Searching', 6: 'Book Next Week' };
   const DAILY_ROUTINES = ['Coding App Work']; // on every day, you pick start and end time
-  const SIMPLE_TITLES = Object.values(SIMPLE_ROUTINES).concat(DAILY_ROUTINES);
+  const WEEKEND_ROUTINES = ['Pickleball']; // Saturday + Sunday only
+  const SIMPLE_TITLES = Object.values(SIMPLE_ROUTINES).concat(DAILY_ROUTINES, WEEKEND_ROUTINES);
   for (let day = 0; day < 7; day++) {
-    state.routines[day] = state.routines[day].filter(t => !SIMPLE_TITLES.includes(t.title) || t.title === SIMPLE_ROUTINES[day] || DAILY_ROUTINES.includes(t.title));
+    state.routines[day] = state.routines[day].filter(t => !SIMPLE_TITLES.includes(t.title) || t.title === SIMPLE_ROUTINES[day] || DAILY_ROUTINES.includes(t.title) || (WEEKEND_ROUTINES.includes(t.title) && (day === 0 || day === 6)));
+    if (day === 0 || day === 6) WEEKEND_ROUTINES.forEach(n => { if (!state.routines[day].some(t => t.title === n)) state.routines[day].push({ id: uid(), title: n, time: '', dur: 0 }); });
     DAILY_ROUTINES.forEach(n => { if (!state.routines[day].some(t => t.title === n)) state.routines[day].push({ id: uid(), title: n, time: '', dur: 0 }); });
     if (SIMPLE_ROUTINES[day] && !state.routines[day].some(t => t.title === SIMPLE_ROUTINES[day])) state.routines[day].push({ id: uid(), title: SIMPLE_ROUTINES[day], time: '', dur: 0 });
   }
@@ -717,7 +719,7 @@
   let pendingMonthlyObj = null;
   // Fixed lengths (minutes) for the weekly/monthly routine boxes. Anything not listed asks for a start AND end time.
   const ROUTINE_DURS = { 'church': 120, 'check emails': 30, 'laundry': 150, 'job searching': 60, 'book next week': 60,
-    'grocery shop': 90, 'shop for chapo': 60, 'household shopping': 60, 'chapo bath': 60, 'car wash': 90, 'clean house': 90, 'meal prep': 150 };
+    'grocery shop': 90, 'shop for chapo': 60, 'household shopping': 60, 'chapo bath': 60, 'car wash': 90, 'clean house': 90, 'meal prep': 150, 'pickleball': 120 };
   const routineDur = name => ROUTINE_DURS[String(name || '').trim().toLowerCase()] || 0;
   let pendingRange = false; // simple weekly routine (Church, Laundry...) scheduled with a start/end time
   function startSimpleScheduling(title) {
