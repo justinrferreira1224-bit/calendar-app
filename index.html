@@ -550,6 +550,18 @@
   </div>
 </div>
 
+<div class="sheet-backdrop" id="appTodoBackdrop">
+  <div class="sheet">
+    <h3 id="appTodoTitle">To-dos</h3>
+    <div id="appTodoList" style="margin-bottom:10px;"></div>
+    <input class="sheet-input" id="appTodoInput" placeholder="add a to-do" onkeydown="if(event.key==='Enter')addAppTodo()">
+    <div class="sheet-actions">
+      <button class="btn btn-secondary" onclick="addAppTodo()">add</button>
+      <button class="btn btn-primary" onclick="closeAppTodos()">close</button>
+    </div>
+  </div>
+</div>
+
 <div class="sheet-backdrop" id="infoBackdrop">
   <div class="sheet">
     <h3 id="infoSheetTitle">Info</h3>
@@ -722,7 +734,24 @@
     'grocery shop': 90, 'shop for chapo': 60, 'household shopping': 60, 'chapo bath': 60, 'car wash': 90, 'clean house': 90, 'meal prep': 150, 'pickleball': 120 };
   const routineDur = name => ROUTINE_DURS[String(name || '').trim().toLowerCase()] || 0;
   let pendingRange = false; // simple weekly routine (Church, Laundry...) scheduled with a start/end time
+  const CODING_APPS = ['Vegas Beta', 'Calendar App'];
+  let pendingCodingApp = null;
   function startSimpleScheduling(title) {
+    pendingCodingApp = null;
+    if (title !== 'Coding App Work') { beginSimpleScheduling(title); return; }
+    document.getElementById('jobPickTitle').textContent = 'Which app?';
+    const row = document.getElementById('jobChipRow');
+    row.innerHTML = '';
+    CODING_APPS.forEach(a => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = a;
+      chip.onclick = () => { pendingCodingApp = a; closeJobPickSheet(); beginSimpleScheduling(title); };
+      row.appendChild(chip);
+    });
+    document.getElementById('jobPickBackdrop').classList.add('open');
+  }
+  function beginSimpleScheduling(title) {
     pendingScheduleTitle = title;
     pendingScheduleDur = routineDur(title);
     pendingRange = !pendingScheduleDur;
@@ -1216,6 +1245,7 @@
     pendingWorkJob = null;
     pendingMonthlyObj = null;
     pendingCardio = null;
+    pendingCodingApp = null;
     pendingRange = false;
     renderCalendar();
   }
@@ -1251,6 +1281,7 @@
     }
     if (!state.tasks[pendingWorkoutDate]) state.tasks[pendingWorkoutDate] = [];
     if (pendingScheduleTitle === 'Workout' && pendingCardio) extra = { ...extra, cardio: pendingCardio };
+    if (pendingScheduleTitle === 'Coding App Work' && pendingCodingApp) extra = { ...extra, app: pendingCodingApp };
     const newTask = { id: uid(), title: pendingScheduleTitle, time, dur, done: false, ...extra };
     state.tasks[pendingWorkoutDate].push(newTask);
     if (newTask.job) addCommute(pendingWorkoutDate, newTask);
@@ -1262,6 +1293,7 @@
     pendingWorkJob = null;
     pendingMonthlyObj = null;
     pendingCardio = null;
+    pendingCodingApp = null;
     pendingRange = false;
     renderCalendar();
     const scheduledWeekday = highlightWorkoutDay;
@@ -2695,7 +2727,7 @@
     ` : `
       <div class="task-check ${t.done ? 'done' : ''}${(isRoutine && options.routineTemplate) || passive ? ' hidden' : ''}"></div>
       <div class="task-body">
-        <div class="task-title ${t.done ? 'done' : ''}">${t.title}${passive ? ' (continued)' : ''}</div>
+        <div class="task-title ${t.done ? 'done' : ''}">${t.title}${t.app ? ' @ ' + t.app : ''}${passive ? ' (continued)' : ''}</div>
         <div class="task-meta">${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}</div>
       </div>
     `;
@@ -2722,7 +2754,7 @@
       // Scheduled weekly/monthly routine items (Church, Laundry, Grocery shop...) use the same black card; tap to mark done.
       item.classList.add('task-item-monthly');
       item.style.cursor = 'pointer';
-      item.addEventListener('click', () => toggleDone(t));
+      item.addEventListener('click', () => (t.title === 'Coding App Work' && t.app) ? openAppTodos(t.app) : toggleDone(t));
     }
     if (t.commute) {
       item.classList.add('task-item-commute');
@@ -2842,6 +2874,50 @@
     const objs = state.monthlyObjs || [];
     const body = objs.length ? objs.map(o => `• ${o.name}${routineDur(o.name) ? ' — ' + fmtDur(routineDur(o.name)) : ''}`).join('<br>') : '<div class="empty-state">No monthly routines yet.</div>';
     openInfoSheet(`Monthly Routines (${objs.length}/8)`, body);
+  }
+
+  // ---- Coding App Work: a to-do list per app (Vegas Beta, Calendar App) ----
+  let todoApp = null;
+  const todoEsc = x => String(x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function appTodosFor(app) {
+    if (!state.appTodos) state.appTodos = {};
+    if (!Array.isArray(state.appTodos[app])) state.appTodos[app] = [];
+    return state.appTodos[app];
+  }
+  function openAppTodos(app) {
+    todoApp = app;
+    document.getElementById('appTodoTitle').textContent = app + ' — to-do';
+    document.getElementById('appTodoInput').value = '';
+    renderAppTodos();
+    document.getElementById('appTodoBackdrop').classList.add('open');
+  }
+  function closeAppTodos() { document.getElementById('appTodoBackdrop').classList.remove('open'); }
+  function renderAppTodos() {
+    const list = appTodosFor(todoApp);
+    const box = document.getElementById('appTodoList');
+    if (!list.length) { box.innerHTML = '<div style="opacity:.6;font-size:13px;padding:6px 0;">Nothing here yet. Add your first one below.</div>'; return; }
+    box.innerHTML = list.map(t => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid #2a2a2a;">
+        <div onclick="toggleAppTodo('${t.id}')" style="width:20px;height:20px;border-radius:50%;border:2px solid #888;flex:none;${t.done ? 'background:#4caf50;border-color:#4caf50;' : ''}"></div>
+        <div onclick="toggleAppTodo('${t.id}')" style="flex:1;font-size:14px;${t.done ? 'text-decoration:line-through;opacity:.5;' : ''}">${todoEsc(t.text)}</div>
+        <div onclick="delAppTodo('${t.id}')" style="opacity:.5;font-size:18px;padding:0 4px;">&times;</div>
+      </div>`).join('');
+  }
+  function addAppTodo() {
+    const inp = document.getElementById('appTodoInput');
+    const text = inp.value.trim();
+    if (!text || !todoApp) return;
+    appTodosFor(todoApp).push({ id: uid(), text, done: false });
+    inp.value = '';
+    save(); renderAppTodos();
+  }
+  function toggleAppTodo(id) {
+    const t = appTodosFor(todoApp).find(x => x.id === id);
+    if (t) { t.done = !t.done; save(); renderAppTodos(); }
+  }
+  function delAppTodo(id) {
+    state.appTodos[todoApp] = appTodosFor(todoApp).filter(x => x.id !== id);
+    save(); renderAppTodos();
   }
 
   function openInfoSheet(title, bodyHtml) {
