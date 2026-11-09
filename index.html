@@ -1212,15 +1212,18 @@
       });
       return busy;
     };
-    if (isWork && pendingScheduleTitle !== 'Work') {
-      // Start/end routines (Coding App Work, etc.): only offer start times that are free, and end times up to the next thing booked.
+    if (isWork) {
+      // Start/end items (Work shifts, Coding App Work, Church...): only offer start times that are free, and end times up to the next thing booked.
+      // Work shifts can run overnight, so for them the next day's bookings count too.
+      const isShift = pendingScheduleTitle === 'Work';
       const busy = busyFor();
-      const nextBusyAfter = m => busy.filter(b => b.start >= m).reduce((n, b) => Math.min(n, b.start), 24 * 60);
+      if (isShift) (state.tasks[addDays(pendingWorkoutDate, 1)] || []).filter(t => t.time).forEach(t => { const st = timeToMinutes(t.time); busy.push({ start: st + 24 * 60, end: st + 24 * 60 + (Number(t.dur) || 0) }); });
+      const nextBusyAfter = m => busy.filter(b => b.start >= m).reduce((n, b) => Math.min(n, b.start), isShift ? Infinity : 24 * 60);
       const insideBusy = m => busy.some(b => m >= b.start && m < b.end);
       const addOpt = (sel, m) => {
         const o = document.createElement('option');
         o.value = minutesToTime(m % (24 * 60));
-        o.textContent = m >= 24 * 60 ? '12:00 AM' : fmtTime(o.value);
+        o.textContent = fmtTime(o.value) + (m > 24 * 60 ? ' (next day)' : '');
         sel.appendChild(o);
       };
       select.innerHTML = '';
@@ -1234,23 +1237,16 @@
         endSelect.innerHTML = '';
         if (!select.value) return;
         const st = timeToMinutes(select.value);
-        const limit = nextBusyAfter(st + 1);
+        const limit = Math.min(nextBusyAfter(st + 1), isShift ? st + 16 * 60 : 24 * 60);
         const ends = [];
         for (let m = st + 30; m <= limit; m += 30) ends.push(m);
         if (limit > st && limit % 30 !== 0) ends.push(limit);
         ends.forEach(m => addOpt(endSelect, m));
-        const pref = ends.indexOf(st + 60) >= 0 ? st + 60 : ends[0];
+        const pref = ends.indexOf(st + (isShift ? 9 * 60 : 60)) >= 0 ? st + (isShift ? 9 * 60 : 60) : ends[0];
         if (pref != null) endSelect.value = minutesToTime(pref % (24 * 60));
       };
       select.onchange = fillEnds;
       fillEnds();
-      endSelect.style.display = '';
-    } else if (isWork) {
-      select.onchange = null;
-      // Shift length varies, so Work gets a start AND end time instead of a fixed duration.
-      hourOptions(select);
-      hourOptions(endSelect);
-      endSelect.value = '17:00';
       endSelect.style.display = '';
     } else {
       select.onchange = null;
