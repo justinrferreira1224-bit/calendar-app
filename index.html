@@ -1200,13 +1200,60 @@
     const endSelect = document.getElementById('workoutEndTimeInput');
     const isWork = pendingScheduleTitle === 'Work' || (!!pendingMonthlyObj && !pendingScheduleDur) || pendingRange;
 
-    if (isWork) {
+    const busyFor = () => {
+      const busy = (state.tasks[pendingWorkoutDate] || []).filter(t => t.time).map(t => {
+        const st = timeToMinutes(t.time);
+        return { start: st, end: st + (Number(t.dur) || 0) };
+      });
+      // overnight stuff from the night before spills into this morning
+      (state.tasks[addDays(pendingWorkoutDate, -1)] || []).filter(t => t.time && timeToMinutes(t.time) + (Number(t.dur) || 0) > 24 * 60).forEach(t => {
+        const spillEnd = timeToMinutes(t.time) + (Number(t.dur) || 0) - 24 * 60;
+        if (spillEnd > 0) busy.push({ start: 0, end: spillEnd });
+      });
+      return busy;
+    };
+    if (isWork && pendingScheduleTitle !== 'Work') {
+      // Start/end routines (Coding App Work, etc.): only offer start times that are free, and end times up to the next thing booked.
+      const busy = busyFor();
+      const nextBusyAfter = m => busy.filter(b => b.start >= m).reduce((n, b) => Math.min(n, b.start), 24 * 60);
+      const insideBusy = m => busy.some(b => m >= b.start && m < b.end);
+      const addOpt = (sel, m) => {
+        const o = document.createElement('option');
+        o.value = minutesToTime(m % (24 * 60));
+        o.textContent = m >= 24 * 60 ? '12:00 AM' : fmtTime(o.value);
+        sel.appendChild(o);
+      };
+      select.innerHTML = '';
+      for (let m = 0; m < 24 * 60; m += 30) {
+        if (insideBusy(m)) continue;
+        if (nextBusyAfter(m) - m < 30) continue;
+        addOpt(select, m);
+      }
+      if (!select.options.length) { const o = document.createElement('option'); o.value = ''; o.textContent = 'No free time that day'; select.appendChild(o); }
+      const fillEnds = () => {
+        endSelect.innerHTML = '';
+        if (!select.value) return;
+        const st = timeToMinutes(select.value);
+        const limit = nextBusyAfter(st + 1);
+        const ends = [];
+        for (let m = st + 30; m <= limit; m += 30) ends.push(m);
+        if (limit > st && limit % 30 !== 0) ends.push(limit);
+        ends.forEach(m => addOpt(endSelect, m));
+        const pref = ends.indexOf(st + 60) >= 0 ? st + 60 : ends[0];
+        if (pref != null) endSelect.value = minutesToTime(pref % (24 * 60));
+      };
+      select.onchange = fillEnds;
+      fillEnds();
+      endSelect.style.display = '';
+    } else if (isWork) {
+      select.onchange = null;
       // Shift length varies, so Work gets a start AND end time instead of a fixed duration.
       hourOptions(select);
       hourOptions(endSelect);
       endSelect.value = '17:00';
       endSelect.style.display = '';
     } else {
+      select.onchange = null;
       // Block out any hour whose start would overlap an already-booked task that day,
       // so the dropdown only offers times that actually fit in what's left of the day.
       select.innerHTML = '';
