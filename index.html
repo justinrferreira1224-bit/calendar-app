@@ -745,18 +745,7 @@
   let pendingCodingApp = null;
   function startSimpleScheduling(title) {
     pendingCodingApp = null;
-    if (title !== 'Coding App Work') { beginSimpleScheduling(title); return; }
-    document.getElementById('jobPickTitle').textContent = 'Which app?';
-    const row = document.getElementById('jobChipRow');
-    row.innerHTML = '';
-    CODING_APPS.forEach(a => {
-      const chip = document.createElement('div');
-      chip.className = 'chip';
-      chip.textContent = a;
-      chip.onclick = () => { pendingCodingApp = a; closeJobPickSheet(); beginSimpleScheduling(title); };
-      row.appendChild(chip);
-    });
-    document.getElementById('jobPickBackdrop').classList.add('open');
+    beginSimpleScheduling(title);
   }
   function beginSimpleScheduling(title) {
     pendingScheduleTitle = title;
@@ -2804,7 +2793,7 @@
       // Scheduled weekly/monthly routine items (Church, Laundry, Grocery shop...) use the same black card; tap to mark done.
       item.classList.add('task-item-monthly');
       item.style.cursor = 'pointer';
-      item.addEventListener('click', () => (t.title === 'Coding App Work' && t.app) ? openAppTodos(t.app) : toggleDone(t));
+      item.addEventListener('click', () => t.title === 'Coding App Work' ? openAppTodos(t) : toggleDone(t));
     }
     if (t.commute) {
       item.classList.add('task-item-commute');
@@ -2937,24 +2926,39 @@
     if (!Array.isArray(state.appTodos[app])) state.appTodos[app] = [];
     return state.appTodos[app];
   }
-  function openAppTodos(app) {
-    todoApp = app;
-    document.getElementById('appTodoTitle').textContent = app + ' — to-do';
+  let todoTask = null;
+  function storedTodoTask() {
+    if (!todoTask) return null;
+    return (state.tasks[todoTask._dateKey || selectedDate] || []).find(x => x.id === todoTask.id) || null;
+  }
+  function openAppTodos(task) {
+    todoTask = task;
+    todoApp = task.app || null;
     document.getElementById('appTodoInput').value = '';
     renderAppTodos();
     document.getElementById('appTodoBackdrop').classList.add('open');
   }
-  function closeAppTodos() { document.getElementById('appTodoBackdrop').classList.remove('open'); }
+  function closeAppTodos() { document.getElementById('appTodoBackdrop').classList.remove('open'); renderTasks(); }
+  function pickTodoApp(app) {
+    todoApp = app;
+    const st = storedTodoTask();
+    if (st) { st.app = app; save(); }
+    renderAppTodos();
+  }
   function renderAppTodos() {
-    const list = appTodosFor(todoApp);
+    document.getElementById('appTodoTitle').textContent = todoApp ? todoApp + ' — to-do' : 'Coding App Work';
+    const chips = CODING_APPS.map(a => `<div class="chip" onclick="pickTodoApp('${a}')" style="${a === todoApp ? 'background:#fff;color:#000;font-weight:700;' : ''}">${a}</div>`).join('');
     const box = document.getElementById('appTodoList');
-    if (!list.length) { box.innerHTML = '<div style="opacity:.6;font-size:13px;padding:6px 0;">Nothing here yet. Add your first one below.</div>'; return; }
-    box.innerHTML = list.map(t => `
+    if (!todoApp) { box.innerHTML = `<div style="opacity:.7;font-size:13px;padding:2px 0 10px;">Which app are you working on?</div><div class="chip-row">${chips}</div>`; document.getElementById('appTodoInput').style.display = 'none'; return; }
+    document.getElementById('appTodoInput').style.display = '';
+    const list = appTodosFor(todoApp);
+    const rows = list.length ? list.map(t => `
       <div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid #2a2a2a;">
         <div onclick="toggleAppTodo('${t.id}')" style="width:20px;height:20px;border-radius:50%;border:2px solid #888;flex:none;${t.done ? 'background:#4caf50;border-color:#4caf50;' : ''}"></div>
         <div onclick="toggleAppTodo('${t.id}')" style="flex:1;font-size:14px;${t.done ? 'text-decoration:line-through;opacity:.5;' : ''}">${todoEsc(t.text)}</div>
         <div onclick="delAppTodo('${t.id}')" style="opacity:.5;font-size:18px;padding:0 4px;">&times;</div>
-      </div>`).join('');
+      </div>`).join('') : '<div style="opacity:.6;font-size:13px;padding:6px 0;">Nothing here yet. Type your first one below.</div>';
+    box.innerHTML = `<div class="chip-row">${chips}</div>` + rows;
   }
   function addAppTodo() {
     const inp = document.getElementById('appTodoInput');
