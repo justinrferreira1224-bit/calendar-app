@@ -564,6 +564,7 @@
     <input class="sheet-input" id="appTodoInput" placeholder="add a to-do" onkeydown="if(event.key==='Enter')addAppTodo()">
     <div class="sheet-actions">
       <button class="btn btn-secondary" onclick="addAppTodo()">add</button>
+      <button class="btn btn-secondary" id="appTodoDoneBtn" onclick="finishAppWork()">done</button>
       <button class="btn btn-primary" onclick="closeAppTodos()">close</button>
     </div>
   </div>
@@ -2939,6 +2940,12 @@
     document.getElementById('appTodoBackdrop').classList.add('open');
   }
   function closeAppTodos() { document.getElementById('appTodoBackdrop').classList.remove('open'); renderTasks(); }
+  function finishAppWork() {
+    const st = storedTodoTask();
+    if (st) { st.done = !st.done; save(); }
+    closeAppTodos();
+    renderCalendar();
+  }
   function pickTodoApp(app) {
     todoApp = app;
     const st = storedTodoTask();
@@ -2946,6 +2953,8 @@
     renderAppTodos();
   }
   function renderAppTodos() {
+    const st = storedTodoTask();
+    document.getElementById('appTodoDoneBtn').textContent = st && st.done ? 'undo done' : 'done';
     document.getElementById('appTodoTitle').textContent = todoApp ? todoApp + ' — to-do' : 'Coding App Work';
     const chips = CODING_APPS.map(a => `<div class="chip" onclick="pickTodoApp('${a}')" style="${a === todoApp ? 'background:#fff;color:#000;font-weight:700;' : ''}">${a}</div>`).join('');
     const box = document.getElementById('appTodoList');
