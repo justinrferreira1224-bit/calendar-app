@@ -99,6 +99,12 @@
   .task-item-monthly .task-check { display: none; }
   .task-item-monthly .task-meta { text-align: center; }
 
+  .swipe-content.task-item-app {
+    background: #c62828;
+    border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(198,40,40,0.4);
+  }
+
   .swipe-content.task-item-night {
     background: #7b2fd4;
     border: 1.5px solid #fff;
@@ -110,8 +116,9 @@
   .task-item-night .task-meta { text-align: center; }
 
   .swipe-content.task-item-commute {
-    background: #000;
+    background: #f57c00;
     border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(245,124,0,0.4);
   }
   .task-item-commute .task-title { font-size: 15px; font-weight: 700; color: #fff; text-align: center; }
   .task-item-commute.task-item { padding: 11px 14px; justify-content: center; }
@@ -2762,7 +2769,7 @@
     ` : isScheduledWork ? `
       <div class="task-check ${t.done ? 'done' : ''}"></div>
       <div class="task-body">
-        <div class="task-title ${t.done ? 'done' : ''}">Work @ ${t.job}${t._continuation ? ' (in progress)' : ''}${t.clockedOut ? ' ✓' : ''}</div>
+        <div class="task-title ${t.done || t.clockedOut ? 'done' : ''}">Work @ ${t.job}${t._continuation ? ' (in progress)' : ''}</div>
         <div class="task-meta">${t.clockedOut
           ? `Actual: ${fmtTime(t.clockIn)} &ndash; ${fmtTime(t.clockOut)} &middot; ${(t.actualDur/60).toFixed(1)}h &middot; $${t.actualPay.toFixed(2)}${t.shiftRating != null ? ' &middot; ' + SHIFT_SMILEYS[t.shiftRating] : ''}`
           : `${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime((timeToMinutes(t.time) + t.dur)))} &middot; ${(t.dur/60).toFixed(1)}h &middot; $${estPay(t).toFixed(2)}`}</div>
@@ -2801,7 +2808,10 @@
     }
     if (t.commute) {
       item.classList.add('task-item-commute');
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', () => toggleDone(t));
     }
+    if (!isRoutine && !passive && t.title === 'Coding App Work') item.classList.add('task-item-app');
     if (isRoutine && options.routineTemplate && t.title === 'Workout') {
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); startWorkoutScheduling(); });
