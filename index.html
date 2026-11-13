@@ -2807,7 +2807,7 @@
       item.addEventListener('click', () => toggleDone(t));
     }
     if (!isRoutine && !passive && t.title === 'Coding App Work') item.classList.add('task-item-app');
-    if (!isRoutine && !passive && t.title === 'Pickleball') item.classList.add('task-item-pickle');
+    if ((!isRoutine && !passive && t.title === 'Pickleball') || (isRoutine && options.routineTemplate && t.title === 'Pickleball' && routineDay === 0)) item.classList.add('task-item-pickle');
     if (isRoutine && options.routineTemplate && t.title === 'Workout') {
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); startWorkoutScheduling(); });
