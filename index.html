@@ -104,6 +104,11 @@
     border: 1.5px solid #fff;
     box-shadow: 0 4px 16px rgba(22,86,214,0.4);
   }
+  .swipe-content.task-item-duo {
+    background: #ff6a00;
+    border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(255,106,0,0.4);
+  }
   .swipe-content.task-item-app {
     background: #c62828;
     border: 1.5px solid #fff;
@@ -2807,6 +2812,7 @@
       item.addEventListener('click', () => toggleDone(t));
     }
     if (t.title === 'Coding App Work' && (isRoutine ? options.routineTemplate : !passive)) item.classList.add('task-item-app');
+    if (t.title === 'Duolingo' && (isRoutine ? options.routineTemplate : !passive)) item.classList.add('task-item-duo');
     if ((!isRoutine && !passive && t.title === 'Pickleball') || (isRoutine && options.routineTemplate && t.title === 'Pickleball' && (routineDay === 0 || routineDay === 6))) item.classList.add('task-item-pickle');
     if (isRoutine && options.routineTemplate && t.title === 'Workout') {
       item.style.cursor = 'pointer';
