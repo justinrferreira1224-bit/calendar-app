@@ -1956,7 +1956,7 @@
         const dayTasks = state.tasks[dateStr] || [];
         const dotColors = [];
         if (dayTasks.some(t => t.title === 'Work') || hasSpilloverWork) dotColors.push('#4caf50');
-        if (dayTasks.some(t => t.title === 'Workout')) dotColors.push('#1656d6');
+        if (dayTasks.some(t => t.title === 'Workout' || t.title === 'Pickleball')) dotColors.push('#1656d6');
         if (dayTasks.some(t => t.title === 'Study')) dotColors.push('#c62828');
         if (dotColors.length) {
           const dotRow = document.createElement('div');
