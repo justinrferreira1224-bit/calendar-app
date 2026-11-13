@@ -1076,7 +1076,7 @@
     let workoutScheduled = 0, workoutDone = 0;
     weekDates.forEach(dateStr => {
       (state.tasks[dateStr] || []).forEach(t => {
-        if (t.title !== 'Workout') return;
+        if (t.title !== 'Workout' && t.title !== 'Pickleball') return; // cardio like pickleball counts as a workout
         workoutScheduled += 1;
         if (t.done) workoutDone += 1;
       });
