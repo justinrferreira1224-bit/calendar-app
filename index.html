@@ -567,6 +567,17 @@
   </div>
 </div>
 
+<div class="sheet-backdrop" id="churchBackdrop">
+  <div class="sheet">
+    <h3>Church — takeaways</h3>
+    <textarea class="sheet-input" id="churchNotes" rows="7" placeholder="What were the takeaways from the sermon?" style="resize:none;"></textarea>
+    <div class="sheet-actions">
+      <button class="btn btn-secondary" id="churchLeftBtn" onclick="closeChurch()">cancel</button>
+      <button class="btn btn-primary" onclick="saveChurch()">save</button>
+    </div>
+  </div>
+</div>
+
 <div class="sheet-backdrop" id="appTodoBackdrop">
   <div class="sheet">
     <h3 id="appTodoTitle">To-dos</h3>
@@ -2778,7 +2789,7 @@
       <div class="task-check ${t.done ? 'done' : ''}${(isRoutine && options.routineTemplate) || passive ? ' hidden' : ''}"></div>
       <div class="task-body">
         <div class="task-title ${t.done ? 'done' : ''}">${t.title}${t.app ? ' @ ' + t.app : ''}${passive ? ' (continued)' : ''}</div>
-        <div class="task-meta">${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}</div>
+        <div class="task-meta">${t.title === 'Church' ? '' : `${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}`}</div>
       </div>
     `;
     if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
@@ -2804,7 +2815,7 @@
       // Scheduled weekly/monthly routine items (Church, Laundry, Grocery shop...) use the same black card; tap to mark done.
       item.classList.add('task-item-monthly');
       item.style.cursor = 'pointer';
-      item.addEventListener('click', () => t.title === 'Coding App Work' ? openAppTodos(t) : toggleDone(t));
+      item.addEventListener('click', () => t.title === 'Coding App Work' ? openAppTodos(t) : t.title === 'Church' ? openChurch(t) : toggleDone(t));
     }
     if (t.commute) {
       item.classList.add('task-item-commute');
@@ -2929,6 +2940,33 @@
     const objs = state.monthlyObjs || [];
     const body = objs.length ? objs.map(o => `• ${o.name}${routineDur(o.name) ? ' — ' + fmtDur(routineDur(o.name)) : ''}`).join('<br>') : '<div class="empty-state">No monthly routines yet.</div>';
     openInfoSheet(`Monthly Routines (${objs.length}/8)`, body);
+  }
+
+  // ---- Church: write down the sermon takeaways, then the box strikes through ----
+  let churchTask = null;
+  function storedChurch() {
+    if (!churchTask) return null;
+    return (state.tasks[churchTask._dateKey || selectedDate] || []).find(x => x.id === churchTask.id) || null;
+  }
+  function openChurch(task) {
+    churchTask = task;
+    const st = storedChurch();
+    document.getElementById('churchNotes').value = (st && st.notes) || '';
+    const left = document.getElementById('churchLeftBtn');
+    left.textContent = st && st.done ? 'undo done' : 'cancel';
+    left.onclick = st && st.done ? undoChurch : closeChurch;
+    document.getElementById('churchBackdrop').classList.add('open');
+  }
+  function closeChurch() { document.getElementById('churchBackdrop').classList.remove('open'); }
+  function saveChurch() {
+    const st = storedChurch();
+    if (st) { st.notes = document.getElementById('churchNotes').value.trim(); st.done = true; save(); }
+    closeChurch(); renderTasks(); renderCalendar();
+  }
+  function undoChurch() {
+    const st = storedChurch();
+    if (st) { st.done = false; save(); }
+    closeChurch(); renderTasks(); renderCalendar();
   }
 
   // ---- Coding App Work: a to-do list per app (Vegas Beta, Calendar App) ----
