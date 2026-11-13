@@ -1107,34 +1107,35 @@
     if (!completedShifts) {
       html += `<div class="empty-state" style="margin:4px 0 0 0;">No shifts completed yet this week.</div>`;
     } else {
-      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-      Object.keys(JOB_RATES).forEach(job => {
-        const d = perJob[job];
-        if (!d) return;
-        html += `
-          <div style="flex:0 0 112px;width:112px;height:112px;box-sizing:border-box;border:1.5px solid #fff;border-radius:12px;background:#1a9e5c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 4px;">
-            <div style="font-size:12px;font-weight:700;color:#fff;opacity:.9;">${job}</div>
-            <div style="font-size:20px;font-weight:800;color:#fff;">${d.hours.toFixed(1)}h</div>
-            <div style="font-size:12px;font-weight:700;color:#fff;">$${d.pay.toFixed(2)}</div>
-            <div style="font-size:9px;color:#fff;opacity:.7;">${d.shifts} shift${d.shifts > 1 ? 's' : ''}</div>
-          </div>`;
-      });
-      html += '</div>';
-
+      // Weekly Mood (computed first so it can sit flush under the first job tile)
       const allRatings = [];
       Object.values(perJob).forEach(d => allRatings.push(...d.ratings));
+      let moodHtml = '';
       if (allRatings.length) {
         const moodAvg = Math.round(allRatings.reduce((a, b) => a + b, 0) / allRatings.length);
         // SHIFT_SMILEYS is angriest(0) -> happiest(4): 0-1 bad (red), 2 mid (yellow), 3-4 good (green)
         const moodColor = moodAvg <= 1 ? '#c62828' : moodAvg === 2 ? '#c99a00' : '#1a9e5c';
-        html += `
-          <div class="hour-block" style="margin-top:8px;background:${moodColor};border:1.5px solid #fff;padding:8px 12px;height:44px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div style="font-weight:700;font-size:13px;color:#fff;">Weekly Mood</div>
-              <div style="font-size:20px;">${SHIFT_SMILEYS[moodAvg]}</div>
-            </div>
+        moodHtml = `
+          <div style="width:96px;height:34px;box-sizing:border-box;margin-top:-1.5px;background:${moodColor};border:1.5px solid #fff;border-radius:0 0 12px 12px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;">
+            <div style="font-weight:700;font-size:11px;color:#fff;">Mood</div>
+            <div style="font-size:16px;line-height:1;">${SHIFT_SMILEYS[moodAvg]}</div>
           </div>`;
       }
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">';
+      let firstJob = true;
+      Object.keys(JOB_RATES).forEach(job => {
+        const d = perJob[job];
+        if (!d) return;
+        html += `<div style="flex:0 0 96px;width:96px;">
+          <div style="width:96px;height:96px;box-sizing:border-box;border:1.5px solid #fff;border-radius:${firstJob && moodHtml ? '12px 12px 0 0' : '12px'};background:#1a9e5c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0 4px;">
+            <div style="font-size:11px;font-weight:700;color:#fff;opacity:.9;">${job}</div>
+            <div style="font-size:18px;font-weight:800;color:#fff;">${d.hours.toFixed(1)}h</div>
+            <div style="font-size:11px;font-weight:700;color:#fff;">$${d.pay.toFixed(2)}</div>
+            <div style="font-size:9px;color:#fff;opacity:.7;">${d.shifts} shift${d.shifts > 1 ? 's' : ''}</div>
+          </div>${firstJob ? moodHtml : ''}</div>`;
+        firstJob = false;
+      });
+      html += '</div>';
     }
 
     // ---- Income: pasted weekly paycheck (actual) + projected. Money in = green.
