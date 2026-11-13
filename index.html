@@ -2781,9 +2781,7 @@
       <div class="task-check ${t.done ? 'done' : ''}"></div>
       <div class="task-body">
         <div class="task-title ${t.done || t.clockedOut ? 'done' : ''}">Work @ ${t.job}${t._continuation ? ' (in progress)' : ''}</div>
-        <div class="task-meta">${t.clockedOut
-          ? `Actual: ${fmtTime(t.clockIn)} &ndash; ${fmtTime(t.clockOut)} &middot; ${(t.actualDur/60).toFixed(1)}h &middot; $${t.actualPay.toFixed(2)}${t.shiftRating != null ? ' &middot; ' + SHIFT_SMILEYS[t.shiftRating] : ''}`
-          : `${fmtTime(t.time)} &ndash; ${fmtTime(minutesToTime((timeToMinutes(t.time) + t.dur)))} &middot; ${(t.dur/60).toFixed(1)}h &middot; $${estPay(t).toFixed(2)}`}</div>
+        <div class="task-meta">${t.clockedOut ? `$${t.actualPay.toFixed(2)}` : `est. $${estPay(t).toFixed(2)}`}</div>
       </div>
     ` : `
       <div class="task-check ${t.done ? 'done' : ''}${(isRoutine && options.routineTemplate) || passive ? ' hidden' : ''}"></div>
