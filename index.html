@@ -576,6 +576,17 @@
   </div>
 </div>
 
+<div class="sheet-backdrop" id="bibleBackdrop">
+  <div class="sheet">
+    <h3>Bible Study</h3>
+    <div id="biblePassage" style="font-size:26px;font-weight:800;text-align:center;padding:14px 0 18px;"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-secondary" onclick="closeBible()">close</button>
+      <button class="btn btn-primary" id="bibleDoneBtn" onclick="finishBible()">done</button>
+    </div>
+  </div>
+</div>
+
 <div class="sheet-backdrop" id="churchBackdrop">
   <div class="sheet">
     <h3>Church — takeaways</h3>
@@ -2784,7 +2795,7 @@
       <div class="task-check ${t.done ? 'done' : ''}${(isRoutine && options.routineTemplate) || passive ? ' hidden' : ''}"></div>
       <div class="task-body">
         <div class="task-title ${t.done ? 'done' : ''}">${t.title}${t.app ? ' @ ' + t.app : ''}${passive ? ' (continued)' : ''}</div>
-        <div class="task-meta">${(!isRoutine && t.title === 'Bible Study') ? biblePassageText(t) : (!isRoutine && (SIMPLE_TITLES.includes(t.title) || t.title === 'Pickleball' || t.monthlyObj)) ? '' : `${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}`}</div>
+        <div class="task-meta">${(!isRoutine && (SIMPLE_TITLES.includes(t.title) || t.title === 'Pickleball' || t.monthlyObj)) ? '' : `${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}`}</div>
       </div>
     `;
     if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
@@ -2810,7 +2821,7 @@
       // Scheduled weekly/monthly routine items (Church, Laundry, Grocery shop...) use the same black card; tap to mark done.
       item.classList.add('task-item-monthly');
       item.style.cursor = 'pointer';
-      item.addEventListener('click', () => t.title === 'Coding App Work' ? openAppTodos(t) : t.title === 'Church' ? openChurch(t) : t.title === 'Bible Study' ? toggleBible(t) : toggleDone(t));
+      item.addEventListener('click', () => t.title === 'Coding App Work' ? openAppTodos(t) : t.title === 'Church' ? openChurch(t) : t.title === 'Bible Study' ? openBible(t) : toggleDone(t));
     }
     if (t.commute) {
       item.classList.add('task-item-commute');
@@ -2959,6 +2970,16 @@
     return (Number(state.bibleStart) || 0) + done + Math.max(0, pos);
   }
   function biblePassageText(task) { return bibleLabel(biblePassageIdx(task)); }
+  let bibleTask = null;
+  function openBible(task) {
+    bibleTask = task;
+    const st = (state.tasks[task._dateKey || selectedDate] || []).find(x => x.id === task.id) || task;
+    document.getElementById('biblePassage').textContent = biblePassageText(st);
+    document.getElementById('bibleDoneBtn').textContent = st.done ? 'undo done' : 'done';
+    document.getElementById('bibleBackdrop').classList.add('open');
+  }
+  function closeBible() { document.getElementById('bibleBackdrop').classList.remove('open'); }
+  function finishBible() { if (bibleTask) toggleBible(bibleTask); closeBible(); }
   function toggleBible(task) {
     const st = (state.tasks[task._dateKey || selectedDate] || []).find(x => x.id === task.id);
     if (!st) return;
