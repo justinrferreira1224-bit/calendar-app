@@ -99,6 +99,11 @@
   .task-item-monthly .task-check { display: none; }
   .task-item-monthly .task-meta { text-align: center; }
 
+  .swipe-content.task-item-pickle {
+    background: #1656d6;
+    border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(22,86,214,0.4);
+  }
   .swipe-content.task-item-app {
     background: #c62828;
     border: 1.5px solid #fff;
@@ -2802,6 +2807,7 @@
       item.addEventListener('click', () => toggleDone(t));
     }
     if (!isRoutine && !passive && t.title === 'Coding App Work') item.classList.add('task-item-app');
+    if (!isRoutine && !passive && t.title === 'Pickleball') item.classList.add('task-item-pickle');
     if (isRoutine && options.routineTemplate && t.title === 'Workout') {
       item.style.cursor = 'pointer';
       item.addEventListener('click', (e) => { e.stopPropagation(); startWorkoutScheduling(); });
