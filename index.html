@@ -2789,7 +2789,7 @@
       <div class="task-check ${t.done ? 'done' : ''}${(isRoutine && options.routineTemplate) || passive ? ' hidden' : ''}"></div>
       <div class="task-body">
         <div class="task-title ${t.done ? 'done' : ''}">${t.title}${t.app ? ' @ ' + t.app : ''}${passive ? ' (continued)' : ''}</div>
-        <div class="task-meta">${t.title === 'Church' ? '' : `${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}`}</div>
+        <div class="task-meta">${(t.title === 'Church' || t.title === 'Duolingo') ? '' : `${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}`}</div>
       </div>
     `;
     if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
