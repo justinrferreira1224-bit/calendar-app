@@ -1107,32 +1107,19 @@
     if (!completedShifts) {
       html += `<div class="empty-state" style="margin:4px 0 0 0;">No shifts completed yet this week.</div>`;
     } else {
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
       Object.keys(JOB_RATES).forEach(job => {
         const d = perJob[job];
         if (!d) return;
         html += `
-          <div class="hour-block" style="margin-bottom:8px;background:#1a9e5c;border:1.5px solid #fff;padding:8px 12px;height:44px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div style="font-weight:700;font-size:13px;color:#fff;">${job}</div>
-              <div style="font-size:11px;color:rgba(255,255,255,0.75);">${d.shifts} shift${d.shifts > 1 ? 's' : ''}</div>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
-              <div style="font-size:12px;color:rgba(255,255,255,0.85);">${d.hours.toFixed(1)}h</div>
-              <div style="font-size:14px;font-weight:700;color:#fff;">$${d.pay.toFixed(2)}</div>
-            </div>
+          <div style="flex:0 0 112px;width:112px;height:112px;box-sizing:border-box;border:1.5px solid #fff;border-radius:12px;background:#1a9e5c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0 4px;">
+            <div style="font-size:12px;font-weight:700;color:#fff;opacity:.9;">${job}</div>
+            <div style="font-size:20px;font-weight:800;color:#fff;">${d.hours.toFixed(1)}h</div>
+            <div style="font-size:12px;font-weight:700;color:#fff;">$${d.pay.toFixed(2)}</div>
+            <div style="font-size:9px;color:#fff;opacity:.7;">${d.shifts} shift${d.shifts > 1 ? 's' : ''}</div>
           </div>`;
       });
-      html += `
-        <div class="hour-block" style="background:#13793f;border:1.5px solid #fff;padding:8px 12px;height:44px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-weight:700;font-size:13px;color:#fff;">Total</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.75);">${completedShifts} shift${completedShifts > 1 ? 's' : ''}</div>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
-            <div style="font-size:12px;color:rgba(255,255,255,0.85);">${totalHours.toFixed(1)}h</div>
-            <div style="font-size:15px;font-weight:800;color:#fff;">$${totalPay.toFixed(2)}</div>
-          </div>
-        </div>`;
+      html += '</div>';
 
       const allRatings = [];
       Object.values(perJob).forEach(d => allRatings.push(...d.ratings));
