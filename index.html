@@ -1429,7 +1429,7 @@
     'Bicep': 'bicep-stretch', 'Tricep': 'tricep-stretch', 'Wrist/Forearm': 'wrist-forearm',
     'Chest': 'doorway-chest', 'Overhead Reach': 'overhead-reach', 'Shoulder Rolls': 'shoulder-rolls',
   };
-  const CARDIO_POSE = { 'High Intensity Run': 'run', 'Walk': 'walk' };
+  const CARDIO_POSE = { 'High Intensity Run': 'run', 'Walk': 'walk', 'Chapo Walk': 'walk' };
 
   let wsPendingPhotoName = null;
 
@@ -1668,7 +1668,7 @@
     }
   }
 
-  const CARDIO_OPTIONS = [{ name: 'Pickleball', detail: '2 hr game', totalSec: 120 * 60 }];
+  const CARDIO_OPTIONS = [{ name: 'Pickleball', detail: '2 hr game', totalSec: 120 * 60 }, { name: 'Chapo Walk', detail: '40 min walk with Chapo', totalSec: 40 * 60 }];
 
   function wsPickCardio(name) {
     const all = [ws.cardioBase].concat(CARDIO_OPTIONS);
