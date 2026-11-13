@@ -109,6 +109,11 @@
     border: 1.5px solid #fff;
     box-shadow: 0 4px 16px rgba(255,106,0,0.4);
   }
+  .swipe-content.task-item-bible {
+    background: #00897b;
+    border: 1.5px solid #fff;
+    box-shadow: 0 4px 16px rgba(0,137,123,0.4);
+  }
   .swipe-content.task-item-app {
     background: #c62828;
     border: 1.5px solid #fff;
@@ -661,7 +666,7 @@
   // One-off weekly routine boxes: each lives on a single weekday and gets a start/end time when tapped.
   const SIMPLE_ROUTINES = { 0: 'Church', 2: 'Check Emails', 4: 'Laundry', 5: 'Job Searching', 6: 'Book Next Week' };
   const DAILY_ROUTINES = ['Coding App Work']; // on every day, you pick start and end time
-  const DAY_ROUTINES = { 'Pickleball': [0, 6], 'Duolingo': [0, 3, 5, 6] }; // boxes that live on specific weekdays (Sun=0)
+  const DAY_ROUTINES = { 'Pickleball': [0, 6], 'Duolingo': [0, 3, 5, 6], 'Bible Study': [2, 3, 4] }; // boxes that live on specific weekdays (Sun=0)
   const SIMPLE_TITLES = Object.values(SIMPLE_ROUTINES).concat(DAILY_ROUTINES, Object.keys(DAY_ROUTINES));
   for (let day = 0; day < 7; day++) {
     state.routines[day] = state.routines[day].filter(t => !SIMPLE_TITLES.includes(t.title) || t.title === SIMPLE_ROUTINES[day] || DAILY_ROUTINES.includes(t.title) || (DAY_ROUTINES[t.title] && DAY_ROUTINES[t.title].includes(day)));
@@ -760,7 +765,7 @@
   let pendingMonthlyObj = null;
   // Fixed lengths (minutes) for the weekly/monthly routine boxes. Anything not listed asks for a start AND end time.
   const ROUTINE_DURS = { 'church': 120, 'check emails': 30, 'laundry': 150, 'job searching': 60, 'book next week': 60,
-    'grocery shop': 90, 'shop for chapo': 60, 'household shopping': 60, 'chapo bath': 60, 'car wash': 90, 'clean house': 90, 'meal prep': 150, 'pickleball': 120, 'duolingo': 30 };
+    'grocery shop': 90, 'shop for chapo': 60, 'household shopping': 60, 'chapo bath': 60, 'car wash': 90, 'clean house': 90, 'meal prep': 150, 'pickleball': 120, 'duolingo': 30, 'bible study': 30 };
   const routineDur = name => ROUTINE_DURS[String(name || '').trim().toLowerCase()] || 0;
   let pendingRange = false; // simple weekly routine (Church, Laundry...) scheduled with a start/end time
   const CODING_APPS = ['Vegas Beta', 'Calendar App'];
@@ -2787,7 +2792,7 @@
       <div class="task-check ${t.done ? 'done' : ''}${(isRoutine && options.routineTemplate) || passive ? ' hidden' : ''}"></div>
       <div class="task-body">
         <div class="task-title ${t.done ? 'done' : ''}">${t.title}${t.app ? ' @ ' + t.app : ''}${passive ? ' (continued)' : ''}</div>
-        <div class="task-meta">${(!isRoutine && (SIMPLE_TITLES.includes(t.title) || t.title === 'Pickleball' || t.monthlyObj)) ? '' : `${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}`}</div>
+        <div class="task-meta">${(!isRoutine && t.title === 'Bible Study') ? biblePassageText(t) : (!isRoutine && (SIMPLE_TITLES.includes(t.title) || t.title === 'Pickleball' || t.monthlyObj)) ? '' : `${t.time ? fmtTime(t.time) : ''}${t.dur ? ' · ' + t.dur + 'm' : ''}`}</div>
       </div>
     `;
     if (!isRoutine || !options.routineTemplate) item.querySelector('.task-check').onclick = () => toggleDone(t);
@@ -2813,7 +2818,7 @@
       // Scheduled weekly/monthly routine items (Church, Laundry, Grocery shop...) use the same black card; tap to mark done.
       item.classList.add('task-item-monthly');
       item.style.cursor = 'pointer';
-      item.addEventListener('click', () => t.title === 'Coding App Work' ? openAppTodos(t) : t.title === 'Church' ? openChurch(t) : toggleDone(t));
+      item.addEventListener('click', () => t.title === 'Coding App Work' ? openAppTodos(t) : t.title === 'Church' ? openChurch(t) : t.title === 'Bible Study' ? toggleBible(t) : toggleDone(t));
     }
     if (t.commute) {
       item.classList.add('task-item-commute');
@@ -2822,6 +2827,7 @@
     }
     if (t.title === 'Coding App Work' && (isRoutine ? options.routineTemplate : !passive)) item.classList.add('task-item-app');
     if (t.title === 'Duolingo' && (isRoutine ? options.routineTemplate : !passive)) item.classList.add('task-item-duo');
+    if (t.title === 'Bible Study' && (isRoutine ? options.routineTemplate : !passive)) item.classList.add('task-item-bible');
     if ((!isRoutine && !passive && t.title === 'Pickleball') || (isRoutine && options.routineTemplate && t.title === 'Pickleball' && (routineDay === 0 || routineDay === 6))) item.classList.add('task-item-pickle');
     if (isRoutine && options.routineTemplate && t.title === 'Workout') {
       item.style.cursor = 'pointer';
@@ -2938,6 +2944,35 @@
     const objs = state.monthlyObjs || [];
     const body = objs.length ? objs.map(o => `• ${o.name}${routineDur(o.name) ? ' — ' + fmtDur(routineDur(o.name)) : ''}`).join('<br>') : '<div class="empty-state">No monthly routines yet.</div>';
     openInfoSheet(`Monthly Routines (${objs.length}/8)`, body);
+  }
+
+  // ---- Bible Study: reading lineup, one chapter per scheduled session, rolls to the next book automatically ----
+  const BIBLE_LINEUP = [['Romans', 16], ['Philippians', 4], ['Hebrews', 13], ['Matthew', 28], ['Psalms', 150], ['Proverbs', 31], ['Luke', 24], ['1 Thessalonians', 5], ['2 Thessalonians', 3], ['James', 5]];
+  function bibleLabel(i) {
+    for (const [name, n] of BIBLE_LINEUP) { if (i < n) return name + ' ' + (i + 1); i -= n; }
+    return 'Lineup finished';
+  }
+  function bibleTasks() {
+    const out = [];
+    Object.keys(state.tasks).sort().forEach(d => (state.tasks[d] || []).forEach(t => { if (t.title === 'Bible Study') out.push({ d, t }); }));
+    return out.sort((a, b) => (a.d + (a.t.time || '')).localeCompare(b.d + (b.t.time || '')));
+  }
+  // Done sessions keep the chapter they were; pending ones get the next chapters in order after everything done so far.
+  function biblePassageIdx(task) {
+    if (task.done && task.passageIdx != null) return task.passageIdx;
+    const all = bibleTasks();
+    const done = all.filter(x => x.t.done).length;
+    const pending = all.filter(x => !x.t.done);
+    const pos = pending.findIndex(x => x.t.id === task.id);
+    return (Number(state.bibleStart) || 0) + done + Math.max(0, pos);
+  }
+  function biblePassageText(task) { return bibleLabel(biblePassageIdx(task)); }
+  function toggleBible(task) {
+    const st = (state.tasks[task._dateKey || selectedDate] || []).find(x => x.id === task.id);
+    if (!st) return;
+    if (!st.done) { st.passageIdx = biblePassageIdx(st); st.done = true; }
+    else { st.done = false; delete st.passageIdx; }
+    save(); renderTasks(); renderCalendar();
   }
 
   // ---- Church: write down the sermon takeaways, then the box strikes through ----
